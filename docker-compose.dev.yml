@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: ./src
+      dockerfile: Dockerfile.dev
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./src:/var/www/html
+      - ./docker/nginx/ssl:/etc/ssl/certs
+    environment:
+      - APP_URL=https://localhost:8443
+      - APP_ENV=local
+    depends_on:
+      - mysql
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "8443:443"
+      - "8080:80"
+    volumes:
+      - ./docker/nginx/nginx.dev.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/ssl/certs
+      - ./survey-frontend/build:/usr/share/nginx/html
+    depends_on:
+      - app
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: survey_app
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:

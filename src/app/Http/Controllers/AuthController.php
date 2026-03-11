@@ -16,12 +16,25 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
+        ], [
+            'name.required' => 'Поле имя обязательно для заполнения.',
+            'name.string' => 'Поле имя должно быть строкой.',
+            'name.max' => 'Длина поля имя не может превышать 255 символов.',
+            'email.required' => 'Поле email обязательно для заполнения.',
+            'email.string' => 'Поле email должно быть строкой.',
+            'email.email' => 'Поле email должно быть действительным email адресом.',
+            'email.max' => 'Длина поля email не может превышать 255 символов.',
+            'email.unique' => 'Пользователь с таким email уже существует.',
+            'password.required' => 'Поле пароль обязательно для заполнения.',
+            'password.string' => 'Поле пароль должно быть строкой.',
+            'password.min' => 'Длина поля пароль должна быть не менее 6 символов.',
+            'password.confirmed' => 'Подтверждение пароля не совпадает.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation errors',
+                'message' => 'Ошибка валидации',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -49,12 +62,17 @@ class AuthController extends Controller
         $validator = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' => 'required|string',
+        ], [
+            'email.required' => 'Поле email обязательно для заполнения.',
+            'email.email' => 'Поле email должно быть действительным email адресом.',
+            'password.required' => 'Поле пароль обязательно для заполнения.',
+            'password.string' => 'Поле пароль должно быть строкой.',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation errors',
+                'message' => 'Ошибка валидации',
                 'errors' => $validator->errors()
             ], 422);
         }
@@ -64,7 +82,7 @@ class AuthController extends Controller
         if (!$token = JWTAuth::attempt($credentials)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid credentials',
+                'message' => 'Неправильный логин или пароль',
             ], 401);
         }
 

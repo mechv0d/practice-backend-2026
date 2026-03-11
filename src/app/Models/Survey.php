@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Carbon\Carbon;
 
 class Survey extends Model
 {
@@ -21,6 +22,15 @@ class Survey extends Model
     protected $casts = [
         'status' => 'string',
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::updating(function ($survey) {
+            $survey->updated_at = Carbon::now();
+        });
+    }
 
     public function user(): BelongsTo
     {
@@ -70,5 +80,10 @@ class Survey extends Model
     public function canBeTaken(): bool
     {
         return $this->isPublished();
+    }
+
+    public function canBeDeleted(): bool
+    {
+        return $this->isDraft();
     }
 }

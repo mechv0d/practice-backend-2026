@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Question;
 use App\Models\Survey;
+use App\Models\Option;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
@@ -50,6 +51,9 @@ class QuestionController extends Controller
             'survey_id' => $survey->id,
         ]);
 
+        // Обновляем время последнего изменения опроса
+        $survey->touch();
+
         return response()->json([
             'success' => true,
             'message' => 'Question created successfully',
@@ -64,6 +68,9 @@ class QuestionController extends Controller
         $validator = Validator::make($request->all(), [
             'text' => 'required|string|max:1000',
             'order' => 'required|integer|min:1',
+            'type' => 'sometimes|in:single_choice,multiple_choice,text',
+            'options' => 'sometimes|array',
+            'options.*' => 'string|max:255',
         ]);
 
         if ($validator->fails()) {
@@ -100,10 +107,39 @@ class QuestionController extends Controller
             ], 403);
         }
 
-        $question->update([
+        $updateData = [
             'text' => $request->text,
             'order' => $request->order,
-        ]);
+        ];
+
+        // Обновляем тип, если он предоставлен
+        if ($request->has('type')) {
+            $updateData['type'] = $request->type;
+        }
+
+        $question->update($updateData);
+
+        // Обновляем опции, если они предоставлены
+        if ($request->has('options')) {
+            // Удаляем существующие опции
+            $question->options()->delete();
+
+            // Создаем новые опции
+            foreach ($request->options as $optionText) {
+                if (!empty(trim($optionText))) {
+                    Option::create([
+                        'text' => trim($optionText),
+                        'question_id' => $question->id,
+                    ]);
+                }
+            }
+        }
+
+        // Обновляем время последнего изменения опроса
+        $survey->touch();
+
+        // Загружаем вопрос с опциями для ответа
+        $question->load('options');
 
         return response()->json([
             'success' => true,
@@ -143,6 +179,9 @@ class QuestionController extends Controller
         }
 
         $question->delete();
+
+        // Обновляем время последнего изменения опроса
+        $survey->touch();
 
         return response()->json([
             'success' => true,

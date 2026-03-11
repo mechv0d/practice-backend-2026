@@ -42,6 +42,7 @@ API-сервис для создания, управления и анализа
 - **PUT /api/surveys/{id}** — Обновление опроса (тело: title, description). Только если draft.
 - **POST /api/surveys/{id}/publish** — Публикация опроса.
 - **POST /api/surveys/{id}/close** — Закрытие опроса.
+- **DELETE /api/surveys/{id}** — Удаление опроса.
 
 ### Управление Вопросами
 

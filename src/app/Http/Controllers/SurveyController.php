@@ -109,9 +109,27 @@ class SurveyController extends Controller
             ], 403);
         }
 
+        \Log::info('Before update', [
+            'survey_id' => $id,
+            'updated_at' => $survey->updated_at,
+            'title' => $request->title,
+            'description' => $request->description
+        ]);
+
         $survey->update([
             'title' => $request->title,
             'description' => $request->description,
+        ]);
+
+        \Log::info('After update', [
+            'survey_id' => $id,
+            'updated_at' => $survey->updated_at
+        ]);
+
+        $survey->refresh(); // Reload from database
+        \Log::info('After refresh', [
+            'survey_id' => $id,
+            'updated_at' => $survey->updated_at
         ]);
 
         return response()->json([
@@ -180,6 +198,33 @@ class SurveyController extends Controller
             'data' => [
                 'survey' => $survey
             ]
+        ]);
+    }
+
+    public function delete($id)
+    {
+        $user = JWTAuth::user();
+        $survey = Survey::where('user_id', $user->id)->find($id);
+
+        if (!$survey) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Опрос не найден или доступ запрещен'
+            ], 404);
+        }
+
+        if (!$survey->canBeDeleted()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Опрос нельзя удалить. Только черновики можно удалять.'
+            ], 403);
+        }
+
+        $survey->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Опрос успешно удален'
         ]);
     }
 }

@@ -63,6 +63,9 @@ class OptionController extends Controller
             'question_id' => $question->id,
         ]);
 
+        // Обновляем время последнего изменения опроса
+        $survey->touch();
+
         return response()->json([
             'success' => true,
             'message' => 'Option created successfully',
@@ -117,6 +120,9 @@ class OptionController extends Controller
             'text' => $request->text,
         ]);
 
+        // Обновляем время последнего изменения опроса
+        $survey->touch();
+
         return response()->json([
             'success' => true,
             'message' => 'Option updated successfully',
@@ -156,6 +162,9 @@ class OptionController extends Controller
         }
 
         $option->delete();
+
+        // Обновляем время последнего изменения опроса
+        $survey->touch();
 
         return response()->json([
             'success' => true,

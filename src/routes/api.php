@@ -25,6 +25,7 @@ Route::middleware('jwt.auth')->group(function () {
     Route::put('/surveys/{id}', [SurveyController::class, 'update']);
     Route::post('/surveys/{id}/publish', [SurveyController::class, 'publish']);
     Route::post('/surveys/{id}/close', [SurveyController::class, 'close']);
+    Route::delete('/surveys/{id}', [SurveyController::class, 'delete']);
 
     // Question routes
     Route::post('/surveys/{surveyId}/questions', [QuestionController::class, 'store']);

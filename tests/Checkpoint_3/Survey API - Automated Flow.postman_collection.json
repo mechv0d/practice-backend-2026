@@ -1,0 +1,371 @@
+{
+  "info": {
+    "_postman_id": "91077931-63dd-4577-a6ad-a83b06b4664b",
+    "name": "Survey API - Automated Flow",
+    "description": "Полностью автоматизированный сценарий: Регистрация автора -> Создание опроса -> Добавление вопроса -> Публикация -> Регистрация респондента -> Получение формы -> Отправка ответа -> Закрытие опроса автором.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "53112220",
+    "_collection_link": "https://go.postman.co/collection/53112220-91077931-63dd-4577-a6ad-a83b06b4664b?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "1. Register Author",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status code is 200 or 201\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "",
+              "let jsonData = pm.response.json();",
+              "let token = jsonData.token || (jsonData.data && jsonData.data.token);",
+              "if (token) {",
+              "    pm.collectionVariables.set(\"author_token\", token);",
+              "    pm.collectionVariables.set(\"current_token\", token);",
+              "    console.log(\"Author token saved!\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"{{$randomFullName}}\",\n    \"email\": \"author_{{$randomEmail}}\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "2. Create Survey",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status is OK\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "// Парсим ответ от сервера",
+              "let jsonData = pm.response.json();",
+              "// Извлекаем ID по правильному пути: data.survey.id",
+              "let surveyId = jsonData.data.survey.id;",
+              "if (surveyId) {",
+              "    // Сохраняем в переменную коллекции",
+              "    pm.collectionVariables.set(\"survey_id\", surveyId);",
+              "    console.log(\"Успех! Survey ID сохранен: \" + surveyId);",
+              "} else {",
+              "    console.error(\"ID не найден в ответе. Проверь структуру JSON!\");",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"title\": \"Автоматический опрос {{$timestamp}}\",\n    \"description\": \"Тестовое описание\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/surveys",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "surveys"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "3. Add Question",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test(\"Status is OK\", function () {",
+              "    pm.expect(pm.response.code).to.be.oneOf([200, 201]);",
+              "});",
+              "let jsonData = pm.response.json();",
+              "let questionId = jsonData.data.question ? jsonData.data.question.id : (jsonData.id || jsonData.data.id);",
+              "if (questionId) {",
+              "    pm.collectionVariables.set(\"question_id\", questionId);",
+              "    console.log(\"Question ID сохранен: \" + questionId);",
+              "}"
+            ],
+            "type": "text/javascript",
+            "packages": {},
+            "requests": {}
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"text\": \"Ваш отзыв о сервисе?\",\n    \"type\": \"text\",\n    \"order\": 1,\n    \"required\": true,\n    \"options\": []\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/surveys/{{survey_id}}/questions",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "surveys",
+            "{{survey_id}}",
+            "questions"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "4. Publish Survey",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/surveys/{{survey_id}}/publish",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "surveys",
+            "{{survey_id}}",
+            "publish"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "5. Register Respondent",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "let jsonData = pm.response.json();",
+              "let token = jsonData.token || (jsonData.data && jsonData.data.token);",
+              "if (token) {",
+              "    pm.collectionVariables.set(\"resp_token\", token);",
+              "    pm.collectionVariables.set(\"current_token\", token);",
+              "    console.log(\"Switched to Respondent token!\");",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"name\": \"Respondent {{$randomFirstName}}\",\n    \"email\": \"resp_{{$randomEmail}}\",\n    \"password\": \"password123\",\n    \"password_confirmation\": \"password123\"\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/register",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "register"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "6. Get Survey Form",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/surveys/{{survey_id}}/form",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "surveys",
+            "{{survey_id}}",
+            "form"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "7. Send Response",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"answers\": [\n    {\n      \"question_id\": {{question_id}},\n      \"text_value\": \"Всё работает отлично!\"\n    }\n  ]\n}\n"
+        },
+        "url": {
+          "raw": "{{base_url}}/surveys/{{survey_id}}/responses",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "surveys",
+            "{{survey_id}}",
+            "responses"
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "8. Close Survey (As Author)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "pm.collectionVariables.set(\"current_token\", pm.collectionVariables.get(\"author_token\"));",
+              "console.log(\"Switched back to Author token!\");"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{base_url}}/surveys/{{survey_id}}/close",
+          "host": [
+            "{{base_url}}"
+          ],
+          "path": [
+            "surveys",
+            "{{survey_id}}",
+            "close"
+          ]
+        }
+      },
+      "response": []
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{current_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000/api"
+    },
+    {
+      "key": "current_token",
+      "value": ""
+    },
+    {
+      "key": "author_token",
+      "value": ""
+    },
+    {
+      "key": "resp_token",
+      "value": ""
+    },
+    {
+      "key": "survey_id",
+      "value": ""
+    },
+    {
+      "key": "question_id",
+      "value": ""
+    }
+  ]
+}

@@ -17,6 +17,7 @@ class QuestionController extends Controller
             'text' => 'required|string|max:1000',
             'type' => 'required|in:single_choice,multiple_choice,text',
             'order' => 'required|integer|min:1',
+            'required' => 'required|boolean',
         ]);
 
         if ($validator->fails()) {
@@ -48,6 +49,7 @@ class QuestionController extends Controller
             'text' => $request->text,
             'type' => $request->type,
             'order' => $request->order,
+            'required' => $request->required,
             'survey_id' => $survey->id,
         ]);
 
@@ -69,6 +71,7 @@ class QuestionController extends Controller
             'text' => 'required|string|max:1000',
             'order' => 'required|integer|min:1',
             'type' => 'sometimes|in:single_choice,multiple_choice,text',
+            'required' => 'sometimes|boolean',
             'options' => 'sometimes|array',
             'options.*' => 'string|max:255',
         ]);
@@ -115,6 +118,11 @@ class QuestionController extends Controller
         // Обновляем тип, если он предоставлен
         if ($request->has('type')) {
             $updateData['type'] = $request->type;
+        }
+
+        // Обновляем обязательность, если она предоставлена
+        if ($request->has('required')) {
+            $updateData['required'] = $request->required;
         }
 
         $question->update($updateData);

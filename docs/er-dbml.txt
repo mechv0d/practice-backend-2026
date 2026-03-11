@@ -1,0 +1,48 @@
+Table users {
+  id bigint [pk, increment]
+  name varchar
+  email varchar [unique]
+  password varchar
+  created_at timestamp
+}
+
+Table surveys {
+  id bigint [pk, increment]
+  user_id bigint [ref: > users.id] // Автор
+  title varchar
+  description text
+  status enum('draft', 'published', 'closed')
+  created_at timestamp
+}
+
+Table questions {
+  id bigint [pk, increment]
+  survey_id bigint [ref: > surveys.id]
+  type enum('single', 'multiple', 'text')
+  required boolean [default: true]
+  text varchar
+  order integer
+}
+
+Table options {
+  id bigint [pk, increment]
+  question_id bigint [ref: > questions.id]
+  text varchar
+  order integer
+}
+
+Table survey_responses {
+  id bigint [pk, increment]
+  survey_id bigint [ref: > surveys.id]
+  user_id bigint [ref: > users.id] // Респондент
+  created_at timestamp
+  // Уникальный индекс (survey_id, user_id) для ограничения "один раз"
+}
+
+Table answers {
+  id bigint [pk, increment]
+  survey_response_id bigint [ref: > survey_responses.id]
+  question_id bigint [ref: > questions.id]
+  option_id bigint [null, ref: > options.id] // Для 'single' / 'multiple'
+  text_answer text [null] // Для 'text'
+}

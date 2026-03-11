@@ -5,12 +5,14 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
 import { Link } from 'react-router-dom';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
 export interface ActionsDropdownProps {
   surveyId: number;
   surveyStatus: string;
   surveyTitle: string;
   onDelete: (surveyId: number, surveyTitle: string) => void;
+  onCopySuccess: () => void;
 }
 
 const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
@@ -18,6 +20,7 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
   surveyStatus,
   surveyTitle,
   onDelete,
+  onCopySuccess,
 }) => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const open = Boolean(anchorEl);
@@ -32,6 +35,27 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
 
   const handleDelete = () => {
     onDelete(surveyId, surveyTitle);
+    handleClose();
+  };
+
+  const handleCopyLink = async () => {
+    const surveyUrl = `${window.location.origin}/surveys/${surveyId}/take`;
+    
+    try {
+      await navigator.clipboard.writeText(surveyUrl);
+      onCopySuccess();
+    } catch (err) {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = surveyUrl;
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textArea);
+      onCopySuccess();
+    }
+    
     handleClose();
   };
 
@@ -156,6 +180,26 @@ const ActionsDropdown: React.FC<ActionsDropdownProps> = ({
             {isViewMode ? 'Посмотреть' : 'Редактировать'}
           </Typography>
         </MenuItem>
+
+        {surveyStatus === 'published' && (
+          <MenuItem
+            onClick={handleCopyLink}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 1,
+              color: 'primary.main',
+              '&:hover': {
+                backgroundColor: 'primary.50',
+              }
+            }}
+          >
+            <ContentCopyIcon sx={{ fontSize: 16 }} />
+            <Typography variant="body2">
+              Скопировать ссылку
+            </Typography>
+          </MenuItem>
+        )}
 
         <MenuItem
           onClick={handleDelete}

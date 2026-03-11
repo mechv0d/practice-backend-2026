@@ -37,6 +37,7 @@ export interface Question {
   text: string;
   type: QuestionType;
   order: number;
+  required: boolean;
   options?: QuestionOption[];
 }
 
@@ -51,6 +52,8 @@ export interface Survey {
   created_at: string;
   updated_at: string;
   questions?: Question[];
+  questions_count?: number;
+  responses_count?: number;
   _count?: {
     responses: number;
     questions?: number;
@@ -71,12 +74,14 @@ export interface CreateQuestionData {
   text: string;
   type: QuestionType;
   order: number;
+  required: boolean;
   options?: string[];
 }
 
 export interface UpdateQuestionData {
   text: string;
   order: number;
+  required?: boolean;
   options?: string[];
 }
 
@@ -85,8 +90,18 @@ export interface Answer {
   value: string | string[];
 }
 
+export interface ApiAnswer {
+  question_id: number;
+  text_value?: string;
+  option_ids?: number[];
+}
+
 export interface SubmitResponseData {
   answers: Answer[];
+}
+
+export interface ApiSubmitResponseData {
+  answers: ApiAnswer[];
 }
 
 export interface ResponseResult {

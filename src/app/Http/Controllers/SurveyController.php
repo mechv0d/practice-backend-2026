@@ -14,7 +14,9 @@ class SurveyController extends Controller
     {
         $user = JWTAuth::user();
 
-        $surveys = $user->surveys()->with('questions.options')->get();
+        $surveys = $user->surveys()->with('questions.options')->withCount(['responses' => function ($query) {
+            $query->whereNotNull('completed_at');
+        }, 'questions'])->get();
 
         return response()->json([
             'success' => true,
@@ -60,7 +62,9 @@ class SurveyController extends Controller
     public function show($id)
     {
         $user = JWTAuth::user();
-        $survey = Survey::where('user_id', $user->id)->with('questions.options')->find($id);
+        $survey = Survey::where('user_id', $user->id)->with('questions.options')->withCount(['responses' => function ($query) {
+            $query->whereNotNull('completed_at');
+        }, 'questions'])->find($id);
 
         if (!$survey) {
             return response()->json([
@@ -103,6 +107,13 @@ class SurveyController extends Controller
         }
 
         if (!$survey->canBeEdited()) {
+            \Log::warning('Survey edit attempt failed', [
+                'survey_id' => $id,
+                'user_id' => $user->id,
+                'current_status' => $survey->status,
+                'reason' => 'Survey cannot be edited. Only draft surveys can be edited.'
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Survey cannot be edited. Only draft surveys can be edited.'
@@ -132,6 +143,16 @@ class SurveyController extends Controller
             'updated_at' => $survey->updated_at
         ]);
 
+        \Log::info('Survey updated', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'old_title' => $survey->getOriginal('title'),
+            'new_title' => $survey->title,
+            'old_description' => $survey->getOriginal('description'),
+            'new_description' => $survey->description,
+            'updated_at' => $survey->updated_at
+        ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Survey updated successfully',
@@ -154,13 +175,31 @@ class SurveyController extends Controller
         }
 
         if (!$survey->canBePublished()) {
+            \Log::warning('Survey publish attempt failed', [
+                'survey_id' => $id,
+                'user_id' => $user->id,
+                'current_status' => $survey->status,
+                'questions_count' => $survey->questions()->count(),
+                'reason' => 'Survey cannot be published. Must be draft and have at least one question.'
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Survey cannot be published. Must be draft and have at least one question.'
             ], 403);
         }
 
+        $oldStatus = $survey->status;
         $survey->update(['status' => 'published']);
+
+        \Log::info('Survey published', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'old_status' => $oldStatus,
+            'new_status' => $survey->status,
+            'questions_count' => $survey->questions()->count(),
+            'published_at' => $survey->updated_at
+        ]);
 
         return response()->json([
             'success' => true,
@@ -184,13 +223,31 @@ class SurveyController extends Controller
         }
 
         if (!$survey->canBeClosed()) {
+            \Log::warning('Survey close attempt failed', [
+                'survey_id' => $id,
+                'user_id' => $user->id,
+                'current_status' => $survey->status,
+                'reason' => 'Survey cannot be closed. Only published surveys can be closed.'
+            ]);
+            
             return response()->json([
                 'success' => false,
                 'message' => 'Survey cannot be closed. Only published surveys can be closed.'
             ], 403);
         }
 
+        $oldStatus = $survey->status;
+        $responseCount = $survey->responses()->count();
         $survey->update(['status' => 'closed']);
+
+        \Log::info('Survey closed', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'old_status' => $oldStatus,
+            'new_status' => $survey->status,
+            'responses_count' => $responseCount,
+            'closed_at' => $survey->updated_at
+        ]);
 
         return response()->json([
             'success' => true,

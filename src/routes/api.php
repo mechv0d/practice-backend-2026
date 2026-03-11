@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\QuestionController;
 use App\Http\Controllers\OptionController;
+use App\Http\Controllers\SurveyResponseController;
 
 // Public routes
 Route::post('/register', [AuthController::class, 'register']);
@@ -36,4 +37,8 @@ Route::middleware('jwt.auth')->group(function () {
     Route::post('/questions/{questionId}/options', [OptionController::class, 'store']);
     Route::put('/options/{id}', [OptionController::class, 'update']);
     Route::delete('/options/{id}', [OptionController::class, 'destroy']);
+
+    // Survey completion routes
+    Route::get('/surveys/{id}/form', [SurveyResponseController::class, 'showForCompletion']);
+    Route::post('/surveys/{id}/responses', [SurveyResponseController::class, 'submit']);
 });

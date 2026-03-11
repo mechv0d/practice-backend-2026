@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { surveysAPI } from '../services/api';
-import { Survey, Answer } from '../types';
+import { Survey, Answer, ApiAnswer } from '../types';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -14,8 +14,9 @@ import RadioGroup from '@mui/material/RadioGroup';
 import FormControlLabel from '@mui/material/FormControlLabel';
 import Checkbox from '@mui/material/Checkbox';
 import FormGroup from '@mui/material/FormGroup';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import CheckIcon from '@mui/icons-material/Check';
 import CircularProgress from '@mui/material/CircularProgress';
+import PageTitle from '../components/PageTitle';
 
 const TakeSurveyPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -69,6 +70,20 @@ const TakeSurveyPage: React.FC = () => {
       const answer = answers.find(a => a.question_id === question.id);
       if (!answer) return false;
 
+      // Если вопрос необязательный, разрешаем пустой ответ
+      const isRequired = question.required ?? true;
+      if (!isRequired) {
+        if (question.type === 'text') {
+          return typeof answer.value === 'string';
+        } else if (question.type === 'single_choice') {
+          return typeof answer.value === 'string';
+        } else if (question.type === 'multiple_choice') {
+          return Array.isArray(answer.value);
+        }
+        return true;
+      }
+
+      // Для обязательных вопросов требуем непустой ответ
       if (question.type === 'text') {
         return typeof answer.value === 'string' && answer.value.trim() !== '';
       } else if (question.type === 'single_choice') {
@@ -80,8 +95,11 @@ const TakeSurveyPage: React.FC = () => {
       return false;
     });
 
+    // Плавная прокрутка наверх после отправки
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+
     if (!isValid) {
-      setError('Пожалуйста, ответьте на все вопросы');
+      setError('Пожалуйста, ответьте на все обязательные вопросы');
       return;
     }
 
@@ -89,7 +107,30 @@ const TakeSurveyPage: React.FC = () => {
     setError('');
 
     try {
-      await surveysAPI.submitResponse(Number(id), { answers });
+      // Transform answers to match backend expected format
+      const transformedAnswers: ApiAnswer[] = answers.map(answer => {
+        if (Array.isArray(answer.value)) {
+          // Multiple choice question
+          return {
+            question_id: answer.question_id,
+            option_ids: answer.value.map(v => parseInt(v))
+          };
+        } else if (answer.value && !isNaN(Number(answer.value))) {
+          // Single choice question (option ID as string)
+          return {
+            question_id: answer.question_id,
+            option_ids: [parseInt(answer.value)]
+          };
+        } else {
+          // Text question
+          return {
+            question_id: answer.question_id,
+            text_value: answer.value
+          };
+        }
+      });
+
+      await surveysAPI.submitResponse(Number(id), { answers: transformedAnswers });
       setSubmitted(true);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Ошибка отправки ответов');
@@ -126,22 +167,7 @@ const TakeSurveyPage: React.FC = () => {
   if (submitted) {
     return (
       <Box sx={{ maxWidth: 'sm', mx: 'auto', textAlign: 'center', py: 12 }}>
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            bgcolor: 'success.light',
-            color: 'success.main',
-            mx: 'auto',
-            mb: 3
-          }}
-        >
-          <CheckCircleIcon />
-        </Box>
+        <CheckIcon sx={{ fontSize: 48, color: 'white', mx: 'auto', mb: 3 }} />
         <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'grey.900', mb: 2 }}>
           Спасибо за участие!
         </Typography>
@@ -162,7 +188,9 @@ const TakeSurveyPage: React.FC = () => {
   if (!survey) return null;
 
   return (
-    <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+    <>
+      <PageTitle title={`Прохождение "${survey.title}"`} description={`Прохождение "${survey.title}"`} />
+      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
       <Box sx={{ mb: 6 }}>
         <Typography variant="h3" sx={{ fontWeight: 'bold', color: 'grey.900', mb: 2 }}>
           {survey.title}
@@ -187,7 +215,7 @@ const TakeSurveyPage: React.FC = () => {
               <Paper key={question.id} elevation={3} sx={{ p: 3 }}>
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'grey.900', mb: 2 }}>
-                    {index + 1}. {question.text}
+                    {(question.required ?? true) && <span style={{ color: 'red' }}>*</span>} {index + 1}. {question.text}
                   </Typography>
                   <Chip
                     label={getQuestionTypeLabel(question.type)}
@@ -300,6 +328,7 @@ const TakeSurveyPage: React.FC = () => {
         </Box>
       </form>
     </Box>
+    </>
   );
 };
 

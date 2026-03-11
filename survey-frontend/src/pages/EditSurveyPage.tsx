@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { surveysAPI, questionsAPI, optionsAPI } from '../services/api';
 import { Survey, Question, CreateQuestionData, QuestionType } from '../types';
 import Box from '@mui/material/Box';
@@ -10,8 +10,10 @@ import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
+import PageTitle from '../components/PageTitle';
 import InputAdornment from '@mui/material/InputAdornment';
 import MenuItem from '@mui/material/MenuItem';
+import Checkbox from '@mui/material/Checkbox';
 import Collapse from '@mui/material/Collapse';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
@@ -20,6 +22,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Skeleton from '@mui/material/Skeleton';
 import { keyframes } from '@mui/material/styles';
+import Tooltip from '@mui/material/Tooltip';
+import InfoIcon from '@mui/icons-material/Info';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 
 // Анимация падения вопроса
 const fallDownAnimation = keyframes`
@@ -42,6 +50,8 @@ const EditSurveyPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const isViewMode = searchParams.get('view') === 'true';
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [survey, setSurvey] = useState<Survey | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -60,10 +70,12 @@ const EditSurveyPage: React.FC = () => {
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number | string>>(new Set());
   const [animatingQuestionIds, setAnimatingQuestionIds] = useState<Set<number | string>>(new Set());
   const [questionRotations, setQuestionRotations] = useState<Map<number | string, number>>(new Map());
+  const [checkboxAnimating, setCheckboxAnimating] = useState(false);
   const [editQuestionData, setEditQuestionData] = useState<CreateQuestionData>({
     text: '',
     type: 'single_choice',
     order: 1,
+    required: true,
     options: [''],
   });
   const [isEditingSurvey, setIsEditingSurvey] = useState(false);
@@ -74,6 +86,7 @@ const EditSurveyPage: React.FC = () => {
     text: '',
     type: 'single_choice',
     order: 1,
+    required: true,
     options: [''],
   });
 
@@ -97,6 +110,11 @@ const EditSurveyPage: React.FC = () => {
 
     fetchSurvey();
   }, [id]);
+
+  const handleCheckboxClick = () => {
+    setCheckboxAnimating(true);
+    setTimeout(() => setCheckboxAnimating(false), 200);
+  };
 
   const isQuestionValid = () => {
     if (!newQuestion.text.trim()) return false;
@@ -128,6 +146,7 @@ const EditSurveyPage: React.FC = () => {
       text: question.text,
       type: question.type,
       order: question.order,
+      required: question.required ?? true,
       options: question.options?.map(opt => opt.text) || ['']
     });
   };
@@ -138,6 +157,7 @@ const EditSurveyPage: React.FC = () => {
       text: '',
       type: 'single_choice',
       order: 1,
+      required: true,
       options: [''],
     });
   };
@@ -157,7 +177,8 @@ const EditSurveyPage: React.FC = () => {
     try {
       const questionData = {
         ...editQuestionData,
-        options: editQuestionData.type !== 'text' ? editQuestionData.options?.filter(opt => opt.trim()) : undefined
+        options: editQuestionData.type !== 'text' ? editQuestionData.options?.filter(opt => opt.trim()) : undefined,
+        required: editQuestionData.required
       };
 
       const updatedQuestion = await questionsAPI.updateQuestion(editingQuestionId as number, questionData);
@@ -234,7 +255,8 @@ const EditSurveyPage: React.FC = () => {
     try {
       const questionData = {
         ...newQuestion,
-        options: newQuestion.type !== 'text' ? newQuestion.options?.filter(opt => opt.trim()) : undefined
+        options: newQuestion.type !== 'text' ? newQuestion.options?.filter(opt => opt.trim()) : undefined,
+        required: newQuestion.required
       };
 
       const createdQuestion = await questionsAPI.createQuestion(Number(id), questionData);
@@ -273,6 +295,7 @@ const EditSurveyPage: React.FC = () => {
         text: '',
         type: 'single_choice',
         order: questions.length + 2,
+        required: true,
         options: [''],
       });
       setIsAddQuestionCollapsed(false);
@@ -487,7 +510,11 @@ const EditSurveyPage: React.FC = () => {
 
   return (
     <>
-    <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+      <PageTitle 
+        title={isViewMode ? `${survey.title}` : `Изменить "${survey.title}"`} 
+        description={isViewMode ? `Просмотр опроса "${survey.title}"` : `Редактирование опроса "${survey.title}"`}
+      />
+      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
       <Box sx={{ mb: 4 }}>
         {isEditingSurvey ? (
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -694,7 +721,7 @@ const EditSurveyPage: React.FC = () => {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary' }}>
-                        Редактирование вопроса {index + 1}
+                        {question.required && <span style={{ color: 'red' }}>*</span>} Редактирование вопроса {index + 1}
                       </Typography>
                       <IconButton
                         onClick={handleCancelEditQuestion}
@@ -746,6 +773,96 @@ const EditSurveyPage: React.FC = () => {
                       <MenuItem value="multiple_choice" key="multiple-choice-edit">Множественный выбор</MenuItem>
                       <MenuItem value="text" key="text-edit">Текстовый ответ</MenuItem>
                     </TextField>
+
+                    <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
+                      {isMobile ? (
+                        <>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={editQuestionData.required}
+                                onChange={(e) => {
+                                  handleCheckboxClick();
+                                  setEditQuestionData({ ...editQuestionData, required: e.target.checked });
+                                }}
+                                size="small"
+                                sx={{
+                                  transition: 'all 0.2s ease-in-out',
+                                  '&:hover': {
+                                    transform: 'scale(1.05)',
+                                  },
+                                  '&:active': {
+                                    transform: 'scale(0.95)',
+                                  },
+                                  '&.Mui-checked': {
+                                    transition: 'all 0.2s ease-in-out',
+                                  },
+                                  ...(checkboxAnimating && {
+                                    transform: 'scale(0.95)',
+                                    transition: 'all 0.1s ease-in-out',
+                                  })
+                                }}
+                              />
+                            }
+                            label="Обязательный вопрос"
+                            onClick={handleCheckboxClick}
+                          />
+                          <Tooltip 
+                            title="Если отмечено, пользователь должен будет ответить на этот вопрос" 
+                            arrow
+                            enterTouchDelay={0}
+                            leaveTouchDelay={1500}
+                          >
+                            <IconButton
+                              size="small"
+                              sx={{ 
+                                color: 'grey.500',
+                                ml: 1,
+                                '&:hover': { 
+                                  color: 'primary.main',
+                                  backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                                }
+                              }}
+                            >
+                              <HelpOutlineIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                        </>
+                      ) : (
+                        <Tooltip title="Если отмечено, пользователь должен будет ответить на этот вопрос" arrow>
+                          <FormControlLabel
+                            control={
+                              <Checkbox
+                                checked={editQuestionData.required}
+                                onChange={(e) => {
+                                  handleCheckboxClick();
+                                  setEditQuestionData({ ...editQuestionData, required: e.target.checked });
+                                }}
+                                size="small"
+                                sx={{
+                                  transition: 'all 0.2s ease-in-out',
+                                  '&:hover': {
+                                    transform: 'scale(1.05)',
+                                  },
+                                  '&:active': {
+                                    transform: 'scale(0.95)',
+                                  },
+                                  '&.Mui-checked': {
+                                    transition: 'all 0.2s ease-in-out',
+                                  },
+                                  ...(checkboxAnimating && {
+                                    transform: 'scale(0.95)',
+                                    transition: 'all 0.1s ease-in-out',
+                                  })
+                                }}
+                              />
+                            }
+                            label="Обязательный вопрос"
+                            onClick={handleCheckboxClick}
+                          />
+                        </Tooltip>
+                      )}
+                    </Box>
 
                     {editQuestionData.type !== 'text' && (
                       <Box>
@@ -904,7 +1021,7 @@ const EditSurveyPage: React.FC = () => {
                         </svg>
                       </Box>
                       <Typography variant="body1" sx={{ color: 'text.primary' }}>
-                        {question.text || 'Без текста вопроса'}
+                        {question.required && <span style={{ color: 'red' }}>*</span>} {question.text || 'Без текста вопроса'}
                       </Typography>
                       
                       <Collapse in={expandedQuestions.has(question.id)} timeout={200}>
@@ -1154,6 +1271,96 @@ const EditSurveyPage: React.FC = () => {
                     <MenuItem value="multiple_choice" key="multiple-choice-new">Множественный выбор</MenuItem>
                     <MenuItem value="text" key="text-new">Текстовый ответ</MenuItem>
                   </TextField>
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, gap: 1 }}>
+                    {isMobile ? (
+                      <>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={newQuestion.required}
+                              onChange={(e) => {
+                                handleCheckboxClick();
+                                setNewQuestion({ ...newQuestion, required: e.target.checked });
+                              }}
+                              size="small"
+                              sx={{
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                  transform: 'scale(1.05)',
+                                },
+                                '&:active': {
+                                  transform: 'scale(0.95)',
+                                },
+                                '&.Mui-checked': {
+                                  transition: 'all 0.2s ease-in-out',
+                                },
+                                ...(checkboxAnimating && {
+                                  transform: 'scale(0.95)',
+                                  transition: 'all 0.1s ease-in-out',
+                                })
+                              }}
+                            />
+                          }
+                          label="Обязательный вопрос"
+                          onClick={handleCheckboxClick}
+                        />
+                        <Tooltip 
+                          title="Если отмечено, пользователь должен будет ответить на этот вопрос" 
+                          arrow
+                          enterTouchDelay={0}
+                          leaveTouchDelay={1500}
+                        >
+                          <IconButton
+                            size="small"
+                            sx={{ 
+                              color: 'grey.500',
+                              ml: 1,
+                              '&:hover': { 
+                                color: 'primary.main',
+                                backgroundColor: 'rgba(25, 118, 210, 0.04)'
+                              }
+                            }}
+                          >
+                            <HelpOutlineIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Tooltip>
+                      </>
+                    ) : (
+                      <Tooltip title="Если отмечено, пользователь должен будет ответить на этот вопрос" arrow>
+                        <FormControlLabel
+                          control={
+                            <Checkbox
+                              checked={newQuestion.required}
+                              onChange={(e) => {
+                                handleCheckboxClick();
+                                setNewQuestion({ ...newQuestion, required: e.target.checked });
+                              }}
+                              size="small"
+                              sx={{
+                                transition: 'all 0.2s ease-in-out',
+                                '&:hover': {
+                                  transform: 'scale(1.05)',
+                                },
+                                '&:active': {
+                                  transform: 'scale(0.95)',
+                                },
+                                '&.Mui-checked': {
+                                  transition: 'all 0.2s ease-in-out',
+                                },
+                                ...(checkboxAnimating && {
+                                  transform: 'scale(0.95)',
+                                  transition: 'all 0.1s ease-in-out',
+                                })
+                              }}
+                            />
+                          }
+                          label="Обязательный вопрос"
+                          onClick={handleCheckboxClick}
+                        />
+                      </Tooltip>
+                    )}
+                  </Box>
 
                   {newQuestion.type !== 'text' && (
                     <Box>

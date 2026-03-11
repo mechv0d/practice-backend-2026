@@ -19,6 +19,8 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import IconButton from '@mui/material/IconButton';
+import Snackbar from '@mui/material/Snackbar';
+import PageTitle from '../components/PageTitle';
 
 const DashboardPage: React.FC = () => {
   const [surveys, setSurveys] = useState<Survey[]>([]);
@@ -35,6 +37,7 @@ const DashboardPage: React.FC = () => {
   const [isClosing, setIsClosing] = useState(false);
   const [infoModalOpen, setInfoModalOpen] = useState(false);
   const [infoModalMessage, setInfoModalMessage] = useState('');
+  const [copySuccess, setCopySuccess] = useState(false);
 
   useEffect(() => {
     const fetchSurveys = async () => {
@@ -201,7 +204,7 @@ const DashboardPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 256 }}>
+      <Box sx={{ maxWidth: 'lg', mx: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 256 }}>
         <CircularProgress />
       </Box>
     );
@@ -229,7 +232,9 @@ const DashboardPage: React.FC = () => {
   }
 
   return (
-    <Box>
+    <>
+      <PageTitle title="Мои опросы" description="Управление вашими опросами" />
+      <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
           Мои опросы
@@ -291,6 +296,7 @@ const DashboardPage: React.FC = () => {
                             setInfoModalMessage('Удалять можно только черновики. Опубликованные и закрытые опросы удалять нельзя.');
                             setInfoModalOpen(true);
                           }}
+                          onCopySuccess={() => setCopySuccess(true)}
                         />
                       </Box>
                     </Box>
@@ -311,11 +317,11 @@ const DashboardPage: React.FC = () => {
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'text.secondary' }}>
                       <Box sx={{ display: 'flex', gap: 2 }}>
                         <Typography variant="caption">
-                          {survey._count?.questions || survey.questions?.length || 0} {getQuestionWord(survey._count?.questions || survey.questions?.length || 0)}
+                          {survey.questions_count || survey.questions?.length || 0} {getQuestionWord(survey.questions_count || survey.questions?.length || 0)}
                         </Typography>
                         {survey.status !== 'draft' && (
                           <Typography variant="caption">
-                            {survey._count?.responses || 0} {getResponseWord(survey._count?.responses || 0)}
+                            {survey.responses_count || 0} {getResponseWord(survey.responses_count || 0)}
                           </Typography>
                         )}
                       </Box>
@@ -331,7 +337,7 @@ const DashboardPage: React.FC = () => {
                           onClick={() => handlePublishClick(survey.id, survey.title)}
                           size="small"
                           variant="contained"
-                          disabled={!survey._count?.questions && !survey.questions?.length}
+                          disabled={!survey.questions_count && !survey.questions?.length}
                           sx={{ 
                             bgcolor: 'success.main',
                             '&:hover': { bgcolor: 'success.dark' },
@@ -577,7 +583,21 @@ const DashboardPage: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Snackbar
+        open={copySuccess}
+        autoHideDuration={2000}
+        onClose={() => setCopySuccess(false)}
+        message="Ссылка скопирована в буфер обмена"
+        sx={{
+          '& .MuiSnackbarContent-root': {
+            backgroundColor: 'success.main',
+            color: 'white',
+          }
+        }}
+      />
     </Box>
+    </>
   );
 };
 

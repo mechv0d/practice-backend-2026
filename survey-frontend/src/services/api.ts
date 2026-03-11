@@ -9,6 +9,7 @@ import {
   CreateQuestionData,
   UpdateQuestionData,
   SubmitResponseData,
+  ApiSubmitResponseData,
   SurveyResults
 } from '../types';
 
@@ -105,7 +106,7 @@ export const surveysAPI = {
     return response.data.data.survey;
   },
 
-  submitResponse: async (id: number, data: SubmitResponseData): Promise<void> => {
+  submitResponse: async (id: number, data: ApiSubmitResponseData): Promise<void> => {
     await api.post(`/surveys/${id}/responses`, data);
   },
 

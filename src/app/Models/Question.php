@@ -15,12 +15,14 @@ class Question extends Model
         'text',
         'type',
         'order',
+        'required',
         'survey_id',
     ];
 
     protected $casts = [
         'type' => 'string',
         'order' => 'integer',
+        'required' => 'boolean',
     ];
 
     public function survey(): BelongsTo
@@ -61,5 +63,15 @@ class Question extends Model
     public function canHaveOptions(): bool
     {
         return $this->requiresOptions();
+    }
+
+    public function isRequired(): bool
+    {
+        return $this->required;
+    }
+
+    public function isOptional(): bool
+    {
+        return !$this->required;
     }
 }

@@ -8,6 +8,7 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
+import PageTitle from '../components/PageTitle';
 
 const CreateSurveyPage: React.FC = () => {
   const [formData, setFormData] = useState<CreateSurveyData>({
@@ -41,7 +42,9 @@ const CreateSurveyPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
+    <>
+      <PageTitle title="Создание опроса" description="Создание нового опроса" />
+      <Box sx={{ maxWidth: 'lg', mx: 'auto' }}>
       <Box sx={{ mb: 4 }}>
         <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'grey.900' }}>
           Создание нового опроса
@@ -118,6 +121,7 @@ const CreateSurveyPage: React.FC = () => {
         </Box>
       </Paper>
     </Box>
+    </>
   );
 };
 

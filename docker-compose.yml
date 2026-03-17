@@ -1,0 +1,56 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - APP_URL=http://localhost:8000
+      - APP_ENV=production
+      - DB_HOST=mysql
+      - DB_DATABASE=survey_app
+      - DB_USERNAME=root
+      - DB_PASSWORD=secret
+      - JWT_SECRET=your-jwt-secret-key-here
+    depends_on:
+      - mysql
+    volumes:
+      - ./src/storage:/var/www/html/storage
+    networks:
+      - survey-network
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: secret
+      MYSQL_DATABASE: survey_app
+      MYSQL_CHARSET: utf8mb4
+      MYSQL_COLLATION: utf8mb4_unicode_ci
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - survey-network
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./docker/nginx/ssl:/etc/ssl/certs
+    depends_on:
+      - app
+    networks:
+      - survey-network
+
+volumes:
+  mysql_data:
+
+networks:
+  survey-network:
+    driver: bridge

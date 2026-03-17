@@ -8,6 +8,30 @@ API-сервис для создания, управления и анализа
 
 Рем Сергей, группа 1ИСП-21
 
+## Быстрый старт (Docker)
+
+Самый простой способ запустить проект - использовать Docker:
+
+```bash
+# Клонируйте репозиторий
+git clone https://github.com/mechv0d/practice-backend-2026.git
+cd practice-backend-2026
+
+# Запустите все сервисы одной командой
+docker-compose up -d
+
+# Выполните миграции (только первый раз)
+docker-compose exec app php artisan migrate
+
+# Готово! API доступно по адресу: http://localhost:8000
+```
+
+### Что будет запущено:
+
+- **Приложение Laravel** на порту 8000
+- **База данных MySQL** на порту 3306
+- **Nginx** на портах 80 и 443
+
 ## Требования
 
 - PHP
@@ -225,3 +249,191 @@ GET /api/surveys?filter=completed&page=1&per_page=20
 ## Дополнительно
 
 - ER-диаграмма: См. /docs/er-diagram.png
+
+### Запуск тестов
+
+```bash
+# Из директории src/
+php artisan test
+
+# Запуск конкретного теста
+php artisan test --filter=SurveyTest
+
+# Запуск с покрытием кода
+php artisan test --coverage
+```
+
+- ✅ **Валидация ответов по типам вопросов**
+  - Одиночный выбор: ровно один вариант
+  - Множественный выбор: несколько вариантов
+  - Текстовые ответы: обязательное заполнение
+
+- ✅ **Защита от повторного прохождения**
+  - Проверка уникальности ответов респондента
+  - Блокировка повторного доступа к форме
+
+- ✅ **Жизненный цикл опросов**
+  - Нельзя редактировать опубликованный опрос
+  - Переходы между статусами: draft → published → closed
+  - Контроль доступа на разных этапах
+
+- ✅ **Ролевая модель доступа**
+  - Авторы могут создавать и управлять опросами
+  - Респонденты могут проходить опросы
+  - Защита от несанкционированного доступа
+
+## 📚 API Документация
+
+Полная документация API доступна в файле `/docs/api-documentation.yaml` в формате OpenAPI 3.0.
+
+### Основные эндпоинты
+
+#### Аутентификация
+- `POST /api/register` - Регистрация пользователя
+- `POST /api/login` - Вход в систему
+- `GET /api/user` - Профиль пользователя
+
+#### Управление опросами (авторы)
+- `GET /api/surveys` - Список опросов с пагинацией и фильтрацией
+- `POST /api/surveys` - Создание опроса
+- `GET /api/surveys/{id}` - Детали опроса
+- `PUT /api/surveys/{id}` - Обновление опроса
+- `POST /api/surveys/{id}/publish` - Публикация опроса
+- `POST /api/surveys/{id}/close` - Закрытие опроса
+- `DELETE /api/surveys/{id}` - Удаление опроса
+
+#### Прохождение опросов (респонденты)
+- `GET /api/surveys/{id}/form` - Получение формы для прохождения
+- `POST /api/surveys/{id}/responses` - Отправка ответов
+
+#### Аналитика (авторы)
+- `GET /api/surveys/{id}/results` - Результаты опроса
+- `GET /api/surveys/{id}/results/export` - Экспорт в JSON
+
+### Пример запроса
+
+```bash
+# Регистрация автора
+curl -X POST http://localhost:8000/api/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "password123",
+    "role": "author"
+  }'
+
+# Создание опроса
+curl -X POST http://localhost:8000/api/surveys \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
+  -d '{
+    "title": "Опрос о качестве услуг",
+    "description": "Пожалуйста, оцените качество наших услуг"
+  }'
+```
+
+## 🏗️ Архитектура проекта
+
+### Ролевая модель
+
+**Author (Автор)**
+- Может создавать, редактировать и управлять опросами
+- Может публиковать и закрывать опросы
+- Не может проходить опросы
+
+**Respondent (Респондент)**
+- Может проходить опубликованные опросы
+- Не может создавать или управлять опросами
+
+### Жизненный цикл опросов
+
+- **draft** - Черновик, можно редактировать структуру
+- **published** - Опубликован, можно проходить, нельзя редактировать
+- **closed** - Закрыт, нельзя проходить и редактировать
+
+### Типы вопросов
+
+- **single_choice** - Одиночный выбор
+- **multiple_choice** - Множественный выбор  
+- **text** - Текстовый ответ
+
+## 🔒 Безопасность
+
+- JWT аутентификация для всех защищенных эндпоинтов
+- Ролевая модель доступа через middleware
+- Валидация входных данных
+- Защита от SQL-инъекций через Eloquent ORM
+- CORS настройки для фронтенда
+
+## 📊 Структура проекта
+
+```
+practice-backend-2026/
+├── docs/
+│   ├── api-documentation.yaml    # OpenAPI документация
+│   └── er-diagram.png            # ER диаграмма базы данных
+├── src/                          # Основное приложение Laravel
+│   ├── app/                      # Модели, контроллеры, middleware
+│   ├── database/                 # Миграции и сидеры
+│   ├── routes/                   # Маршруты API
+│   ├── tests/                    # Тесты
+│   └── Dockerfile.dev            # Docker для разработки
+├── docker/                       # Конфигурации Docker
+│   ├── nginx/                    # Nginx конфигурация
+│   └── mysql/                    # MySQL инициализация
+├── survey-frontend/              # React фронтенд
+├── tests/                        # Тесты
+├── docker-compose.yml            # Docker Compose конфигурация
+├── Dockerfile                    # Production Dockerfile
+└── README.md                     # Вы здесь
+```
+
+## 🔧 Разработка
+
+### Локальная разработка
+
+Для разработки используйте Docker Compose:
+
+```bash
+# Запуск в режиме разработки
+docker-compose -f docker-compose.dev.yml up
+
+# Выполнение команд в контейнере
+docker-compose exec app php artisan make:migration create_new_table
+docker-compose exec app php artisan tinker
+```
+
+### База данных
+
+```bash
+# Создание новой миграции
+php artisan make:migration create_table_name
+
+# Запуск миграций
+php artisan migrate
+
+# Откат миграций
+php artisan migrate:rollback
+
+# Наполнение базы данных
+php artisan db:seed
+```
+
+## 📝 Дополнительная информация
+
+- ER-диаграмма: `/docs/er-diagram.png`
+- API документация: `api-documentation.yaml`
+- Тесты: `/src/tests/Feature/SurveyTest.php`
+
+## 🤝 Вклад в проект
+
+1. Fork проекта
+2. Создайте feature-ветку (`git checkout -b feature/AmazingFeature`)
+3. Commit изменений (`git commit -m 'Add some AmazingFeature'`)
+4. Push в ветку (`git push origin feature/AmazingFeature`)
+5. Откройте Pull Request
+
+## 📄 Лицензия
+
+см. файл LICENSE для деталей

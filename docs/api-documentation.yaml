@@ -1,0 +1,1296 @@
+openapi: 3.0.3
+info:
+  title: Survey API
+  description: API для создания и прохождения опросов и голосований
+  version: 1.0.0
+  contact:
+    name: Survey API Support
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8000/api
+    description: Development server
+  - url: https://localhost:8443/api
+    description: Production server with SSL
+
+paths:
+  /register:
+    post:
+      tags:
+        - Authentication
+      summary: Регистрация нового пользователя
+      description: Создает нового пользователя с ролью author или respondent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+                - password
+                - role
+              properties:
+                name:
+                  type: string
+                  example: John Doe
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  minLength: 6
+                  example: password123
+                role:
+                  type: string
+                  enum: [author, respondent]
+                  example: author
+      responses:
+        '201':
+          description: Пользователь успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User successfully registered
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      token:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /login:
+    post:
+      tags:
+        - Authentication
+      summary: Вход в систему
+      description: Аутентификация пользователя и получение JWT токена
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: john@example.com
+                password:
+                  type: string
+                  example: password123
+      responses:
+        '200':
+          description: Успешная аутентификация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Login successful
+                  data:
+                    type: object
+                    properties:
+                      user:
+                        $ref: '#/components/schemas/User'
+                      token:
+                        type: string
+                        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /surveys:
+    get:
+      tags:
+        - Surveys
+      summary: Получить список опросов
+      description: Возвращает список опросов с пагинацией и фильтрацией
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: filter
+          in: query
+          schema:
+            type: string
+            enum: [my, published, closed]
+            description: "Фильтр опросов: my - мои опросы, published - опубликованные, closed - закрытые"
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, updated_at, responses_count]
+            description: 'Сортировка: по дате создания, дате обновления или количеству ответов'
+        - name: sort_order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Список опросов
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      surveys:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/Survey'
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Surveys
+      summary: Создать новый опрос
+      description: Создает новый опрос с ролью автора
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                  maxLength: 255
+                  example: Опрос о качестве услуг
+                description:
+                  type: string
+                  nullable: true
+                  example: Пожалуйста, оцените качество наших услуг
+      responses:
+        '201':
+          description: Опрос успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Survey created successfully
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        $ref: '#/components/schemas/Survey'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /surveys/{id}:
+    get:
+      tags:
+        - Surveys
+      summary: Получить опрос по ID
+      description: Возвращает информацию об опросе с вопросами и вариантами ответов
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Информация об опросе
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        $ref: '#/components/schemas/SurveyWithQuestions'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Surveys
+      summary: Обновить опрос
+      description: Обновляет информацию об опросе (только для черновиков)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                  maxLength: 255
+                  example: Обновленный заголовок опроса
+                description:
+                  type: string
+                  nullable: true
+                  example: Обновленное описание опроса
+      responses:
+        '200':
+          description: Опрос успешно обновлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Survey updated successfully
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        $ref: '#/components/schemas/Survey'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - Surveys
+      summary: Удалить опрос
+      description: Удаляет опрос (только черновики)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Опрос успешно удален
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Survey deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{id}/publish:
+    post:
+      tags:
+        - Surveys
+      summary: Опубликовать опрос
+      description: Изменяет статус опроса на "опубликован"
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Опрос успешно опубликован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Survey published successfully
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        $ref: '#/components/schemas/Survey'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{id}/close:
+    post:
+      tags:
+        - Surveys
+      summary: Закрыть опрос
+      description: 'Изменяет статус опроса на "закрыт"'
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Опрос успешно закрыт
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Survey closed successfully
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        $ref: '#/components/schemas/Survey'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{surveyId}/questions:
+    post:
+      tags:
+        - Questions
+      summary: Создать новый вопрос
+      description: Создает новый вопрос для указанного опроса
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: surveyId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+                - type
+                - order
+              properties:
+                text:
+                  type: string
+                  example: Как вы оцениваете качество наших услуг?
+                type:
+                  type: string
+                  enum: [single_choice, multiple_choice, text]
+                  example: single_choice
+                order:
+                  type: integer
+                  example: 1
+                required:
+                  type: boolean
+                  example: true
+      responses:
+        '201':
+          description: Вопрос успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Question created successfully
+                  data:
+                    type: object
+                    properties:
+                      question:
+                        $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /questions/{id}:
+    put:
+      tags:
+        - Questions
+      summary: Обновить вопрос
+      description: Обновляет информацию о вопросе
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                text:
+                  type: string
+                  example: Обновленный текст вопроса
+                type:
+                  type: string
+                  enum: [single_choice, multiple_choice, text]
+                  example: multiple_choice
+                order:
+                  type: integer
+                  example: 2
+                required:
+                  type: boolean
+                  example: false
+      responses:
+        '200':
+          description: Вопрос успешно обновлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Question updated successfully
+                  data:
+                    type: object
+                    properties:
+                      question:
+                        $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - Questions
+      summary: Удалить вопрос
+      description: Удаляет вопрос и все связанные с ним варианты ответов
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Вопрос успешно удален
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Question deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /questions/{questionId}/options:
+    post:
+      tags:
+        - Options
+      summary: Создать вариант ответа
+      description: Создает новый вариант ответа для указанного вопроса
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  example: Отлично
+      responses:
+        '201':
+          description: Вариант ответа успешно создан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Option created successfully
+                  data:
+                    type: object
+                    properties:
+                      option:
+                        $ref: '#/components/schemas/Option'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /options/{id}:
+    put:
+      tags:
+        - Options
+      summary: Обновить вариант ответа
+      description: Обновляет текст варианта ответа
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - text
+              properties:
+                text:
+                  type: string
+                  example: Обновленный вариант ответа
+      responses:
+        '200':
+          description: Вариант ответа успешно обновлен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Option updated successfully
+                  data:
+                    type: object
+                    properties:
+                      option:
+                        $ref: '#/components/schemas/Option'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+    delete:
+      tags:
+        - Options
+      summary: Удалить вариант ответа
+      description: Удаляет вариант ответа
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Вариант ответа успешно удален
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Option deleted successfully
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{id}/form:
+    get:
+      tags:
+        - Survey Responses
+      summary: Получить опрос для прохождения
+      description: Возвращает опубликованный опрос для прохождения респондентом
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Опрос для прохождения
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        type: object
+                        properties:
+                          id:
+                            type: integer
+                            example: 1
+                          title:
+                            type: string
+                            example: Опрос о качестве услуг
+                          description:
+                            type: string
+                            example: Пожалуйста, оцените качество наших услуг
+                          questions:
+                            type: array
+                            items:
+                              $ref: '#/components/schemas/QuestionWithOptions'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Опрос уже пройден или недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{id}/responses:
+    post:
+      tags:
+        - Survey Responses
+      summary: Отправить ответы на опрос
+      description: Сохраняет ответы респондента на опрос
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - answers
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - question_id
+                    properties:
+                      question_id:
+                        type: integer
+                        example: 1
+                      text_value:
+                        type: string
+                        nullable: true
+                        example: Текстовый ответ
+                      option_ids:
+                        type: array
+                        items:
+                          type: integer
+                        example: [1, 2]
+      responses:
+        '200':
+          description: Ответы успешно сохранены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Опрос успешно отправлен
+                  data:
+                    type: object
+                    properties:
+                      response_id:
+                        type: integer
+                        example: 1
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Опрос уже пройден или недоступен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+
+  /surveys/{id}/results:
+    get:
+      tags:
+        - Survey Analytics
+      summary: Получить результаты опроса
+      description: Возвращает аналитику по опросу
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Результаты опроса
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      survey:
+                        $ref: '#/components/schemas/Survey'
+                      total_responses:
+                        type: integer
+                        example: 25
+                      questions:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/QuestionAnalytics'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{id}/results/export:
+    get:
+      tags:
+        - Survey Analytics
+      summary: Экспортировать результаты опроса
+      description: Возвращает результаты опроса в формате для экспорта (CSV/Excel)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: format
+          in: query
+          schema:
+            type: string
+            enum: [csv, xlsx]
+            default: csv
+          description: Формат экспорта
+      responses:
+        '200':
+          description: Файл с результатами опроса
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /surveys/{id}/text-answers/{questionId}:
+    get:
+      tags:
+        - Survey Analytics
+      summary: Получить текстовые ответы на вопрос
+      description: Возвращает пагинированный список текстовых ответов на указанный вопрос
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: questionId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 50
+      responses:
+        '200':
+          description: Текстовые ответы на вопрос
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      question:
+                        $ref: '#/components/schemas/Question'
+                      text_answers:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id:
+                              type: integer
+                              example: 1
+                            text:
+                              type: string
+                              example: Отличный сервис!
+                            created_at:
+                              type: string
+                              format: date-time
+                              example: 2024-01-01T12:00:00Z
+                      pagination:
+                        $ref: '#/components/schemas/Pagination'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: John Doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        role:
+          type: string
+          enum: [author, respondent]
+          example: author
+        created_at:
+          type: string
+          format: date-time
+          example: 2024-01-01T12:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2024-01-01T12:00:00Z
+
+    Survey:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: Опрос о качестве услуг
+        description:
+          type: string
+          nullable: true
+          example: Пожалуйста, оцените качество наших услуг
+        status:
+          type: string
+          enum: [draft, published, closed]
+          example: published
+        user_id:
+          type: integer
+          example: 1
+        created_at:
+          type: string
+          format: date-time
+          example: 2024-01-01T12:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          example: 2024-01-01T12:00:00Z
+        responses_count:
+          type: integer
+          example: 25
+
+    SurveyWithQuestions:
+      allOf:
+        - $ref: '#/components/schemas/Survey'
+        - type: object
+          properties:
+            questions:
+              type: array
+              items:
+                $ref: '#/components/schemas/Question'
+
+    Question:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        text:
+          type: string
+          example: Как вы оцениваете качество наших услуг?
+        type:
+          type: string
+          enum: [single_choice, multiple_choice, text]
+          example: single_choice
+        order:
+          type: integer
+          example: 1
+        required:
+          type: boolean
+          example: true
+        options:
+          type: array
+          items:
+            $ref: '#/components/schemas/Option'
+
+    QuestionWithOptions:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        text:
+          type: string
+          example: Как вы оцениваете качество наших услуг?
+        type:
+          type: string
+          enum: [single_choice, multiple_choice, text]
+          example: single_choice
+        order:
+          type: integer
+          example: 1
+        required:
+          type: boolean
+          example: true
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 1
+              text:
+                type: string
+                example: Отлично
+
+    QuestionAnalytics:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        text:
+          type: string
+          example: Как вы оцениваете качество наших услуг?
+        type:
+          type: string
+          enum: [single_choice, multiple_choice, text]
+          example: single_choice
+        total_answers:
+          type: integer
+          example: 25
+        options:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 1
+              text:
+                type: string
+                example: Отлично
+              count:
+                type: integer
+                example: 15
+              percentage:
+                type: number
+                format: float
+                example: 60.0
+        text_answers:
+          type: array
+          items:
+            type: object
+            properties:
+              text:
+                type: string
+                example: Отличный сервис!
+              created_at:
+                type: string
+                format: date-time
+                example: 2024-01-01T12:00:00Z
+
+    Option:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        text:
+          type: string
+          example: Отлично
+        question_id:
+          type: integer
+          example: 1
+
+    Pagination:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        last_page:
+          type: integer
+          example: 5
+        per_page:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 50
+        from:
+          type: integer
+          example: 1
+        to:
+          type: integer
+          example: 10
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Error occurred
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+  responses:
+    UnauthorizedError:
+      description: Неавторизованный доступ
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ForbiddenError:
+      description: Доступ запрещен
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFoundError:
+      description: Ресурс не найден
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ValidationError:
+      description: Ошибка валидации
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+tags:
+  - name: Authentication
+    description: Операции аутентификации пользователей
+  - name: Surveys
+    description: Управление опросами
+  - name: Questions
+    description: Управление вопросами опросов
+  - name: Options
+    description: Управление вариантами ответов
+  - name: Survey Responses
+    description: Прохождение опросов
+  - name: Survey Analytics
+    description: Аналитика опросов

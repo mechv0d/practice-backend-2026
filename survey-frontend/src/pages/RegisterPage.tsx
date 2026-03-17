@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { RegisterData } from '../types';
+import { RegisterData, UserRole } from '../types';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import Paper from '@mui/material/Paper';
@@ -10,6 +10,7 @@ import TextField from '@mui/material/TextField';
 import Button from '@mui/material/Button';
 import Alert from '@mui/material/Alert';
 import LinkMui from '@mui/material/Link';
+import RoleSelector from '../components/RoleSelector';
 
 const RegisterPage: React.FC = () => {
   const [formData, setFormData] = useState<RegisterData>({
@@ -17,9 +18,11 @@ const RegisterPage: React.FC = () => {
     email: '',
     password: '',
     password_confirmation: '',
+    role: '' as UserRole,
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [roleError, setRoleError] = useState(false);
 
   const { register, isAuthenticated } = useAuth();
 
@@ -34,10 +37,26 @@ const RegisterPage: React.FC = () => {
     });
   };
 
+  const handleRoleChange = (role: UserRole) => {
+    setFormData({
+      ...formData,
+      role,
+    });
+    setRoleError(false);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
     setError('');
+
+    // Валидация выбора роли
+    if (!formData.role) {
+      setRoleError(true);
+      setError('Пожалуйста, выберите роль');
+      return;
+    }
+
+    setIsLoading(true);
 
     try {
       await register(formData);
@@ -82,6 +101,13 @@ const RegisterPage: React.FC = () => {
                 {error}
               </Alert>
             )}
+
+            <RoleSelector
+              value={formData.role}
+              onChange={handleRoleChange}
+              error={roleError}
+              helperText={roleError ? 'Пожалуйста, выберите роль для продолжения' : ''}
+            />
 
             <TextField
               id="name"

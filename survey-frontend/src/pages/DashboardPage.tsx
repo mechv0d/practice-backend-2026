@@ -371,24 +371,6 @@ const DashboardPage: React.FC = () => {
                         >
                           Результаты
                         </Button>
-                        {survey.status === 'published' && (
-                        <Button
-                          component={Link}
-                          to={`/surveys/${survey.id}/take`}
-                          size="small"
-                          variant="outlined"
-                          sx={{ 
-                            borderColor: 'transparent',
-                            color: 'info.main',
-                            '&:hover': {
-                              borderColor: 'info.main',
-                              transform: 'scale(1.03)'
-                            }
-                          }}
-                          target="_blank"
-                        >
-                          Пройти опрос
-                        </Button>)}
                       </>
                     )}
                      {survey.status === 'published' && (

@@ -30,6 +30,13 @@ class SurveyController extends Controller
     {
         $user = JWTAuth::user();
 
+        if (!$user->isAuthor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only authors can create surveys.'
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'title' => 'required|string|max:255',
             'description' => 'nullable|string|max:1000',
@@ -97,6 +104,14 @@ class SurveyController extends Controller
         }
 
         $user = JWTAuth::user();
+
+        if (!$user->isAuthor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only authors can update surveys.'
+            ], 403);
+        }
+
         $survey = Survey::where('user_id', $user->id)->find($id);
 
         if (!$survey) {
@@ -165,6 +180,14 @@ class SurveyController extends Controller
     public function publish($id)
     {
         $user = JWTAuth::user();
+
+        if (!$user->isAuthor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only authors can publish surveys.'
+            ], 403);
+        }
+
         $survey = Survey::where('user_id', $user->id)->find($id);
 
         if (!$survey) {
@@ -213,6 +236,14 @@ class SurveyController extends Controller
     public function close($id)
     {
         $user = JWTAuth::user();
+
+        if (!$user->isAuthor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only authors can close surveys.'
+            ], 403);
+        }
+
         $survey = Survey::where('user_id', $user->id)->find($id);
 
         if (!$survey) {
@@ -261,6 +292,14 @@ class SurveyController extends Controller
     public function delete($id)
     {
         $user = JWTAuth::user();
+
+        if (!$user->isAuthor()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only authors can delete surveys.'
+            ], 403);
+        }
+
         $survey = Survey::where('user_id', $user->id)->find($id);
 
         if (!$survey) {

@@ -16,6 +16,7 @@ import Checkbox from '@mui/material/Checkbox';
 import FormGroup from '@mui/material/FormGroup';
 import CheckIcon from '@mui/icons-material/Check';
 import CircularProgress from '@mui/material/CircularProgress';
+import Tooltip from '@mui/material/Tooltip';
 import PageTitle from '../components/PageTitle';
 
 const TakeSurveyPage: React.FC = () => {
@@ -71,8 +72,7 @@ const TakeSurveyPage: React.FC = () => {
       if (!answer) return false;
 
       // Если вопрос необязательный, разрешаем пустой ответ
-      const isRequired = question.required ?? true;
-      if (!isRequired) {
+      if (!question.required) {
         if (question.type === 'text') {
           return typeof answer.value === 'string';
         } else if (question.type === 'single_choice') {
@@ -108,32 +108,61 @@ const TakeSurveyPage: React.FC = () => {
 
     try {
       // Transform answers to match backend expected format
-      const transformedAnswers: ApiAnswer[] = answers.map(answer => {
-        if (Array.isArray(answer.value)) {
-          // Multiple choice question
-          return {
-            question_id: answer.question_id,
-            option_ids: answer.value.map(v => parseInt(v))
-          };
-        } else if (answer.value && !isNaN(Number(answer.value))) {
-          // Single choice question (option ID as string)
-          return {
-            question_id: answer.question_id,
-            option_ids: [parseInt(answer.value)]
-          };
-        } else {
-          // Text question
-          return {
-            question_id: answer.question_id,
-            text_value: answer.value
-          };
-        }
-      });
+      const transformedAnswers: ApiAnswer[] = answers
+        .filter(answer => {
+          // Находим вопрос для этого ответа
+          const question = survey.questions?.find(q => q.id === answer.question_id);
+          if (!question) return false;
+
+          // Для обязательных вопросов всегда включаем в проверку
+          if (question.required) return true;
+
+          // Для необязательных вопросов включаем только если есть непустой ответ
+          const answerValue = answer.value;
+          if (question.type === 'text') {
+            return typeof answerValue === 'string' && answerValue.trim() !== '';
+          } else if (question.type === 'single_choice' || question.type === 'multiple_choice') {
+            if (Array.isArray(answerValue)) {
+              return answerValue.length > 0;
+            } else {
+              return answerValue !== '';
+            }
+          }
+          return false;
+        })
+        .map(answer => {
+          if (Array.isArray(answer.value)) {
+            // Multiple choice question
+            return {
+              question_id: answer.question_id,
+              option_ids: answer.value.map(v => parseInt(v))
+            };
+          } else if (answer.value && !isNaN(Number(answer.value))) {
+            // Single choice question (option ID as string)
+            return {
+              question_id: answer.question_id,
+              option_ids: [parseInt(answer.value)]
+            };
+          } else {
+            // Text question
+            return {
+              question_id: answer.question_id,
+              text_value: answer.value
+            };
+          }
+        });
 
       await surveysAPI.submitResponse(Number(id), { answers: transformedAnswers });
       setSubmitted(true);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка отправки ответов');
+      console.error('Submit error:', err);
+      console.error('Response data:', err.response?.data);
+      
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        setError('Ошибки валидации: ' + err.response.data.errors.join(', '));
+      } else {
+        setError(err.response?.data?.message || 'Ошибка отправки ответов');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -215,8 +244,12 @@ const TakeSurveyPage: React.FC = () => {
               <Paper key={question.id} elevation={3} sx={{ p: 3 }}>
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'grey.900', mb: 2 }}>
-                    {(question.required ?? true) && <span style={{ color: 'red' }}>*</span>} {index + 1}. {question.text}
-                  </Typography>
+                      {question.required && (
+                        <Tooltip title="Обязательный вопрос" arrow>
+                          <span style={{ color: 'red' }}>*</span>
+                        </Tooltip>
+                      )} {index + 1}. {question.text}
+                    </Typography>
                   <Chip
                     label={getQuestionTypeLabel(question.type)}
                     size="small"

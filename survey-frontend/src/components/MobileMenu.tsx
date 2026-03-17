@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import Box from '@mui/material/Box';
 import Drawer from '@mui/material/Drawer';
@@ -7,6 +7,13 @@ import List from '@mui/material/List';
 import ListItem from '@mui/material/ListItem';
 import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
+import Tooltip from '@mui/material/Tooltip';
+import CreateIcon from '@mui/icons-material/Create';
+import AssignmentIcon from '@mui/icons-material/Assignment';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -19,10 +26,22 @@ interface MobileMenuProps {
 const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const location = useLocation();
+    const navigate = useNavigate();
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const handleLogout = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     onClose();
+    navigate('/login');
+    setLogoutDialogOpen(false);
+  };
+
+  const cancelLogout = () => {
+    setLogoutDialogOpen(false);
   };
 
   const isActiveLink = (path: string) => {
@@ -35,7 +54,8 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
   ] : [];
 
   return (
-    <Drawer
+    <>
+      <Drawer
       anchor="right"
       open={open}
       onClose={onClose}
@@ -55,9 +75,20 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
         
         {isAuthenticated && (
           <>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Привет, {user?.name}
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'start', flexDirection: 'column', gap: 1, mb: 2 }}>
+              <Typography variant="body2" color="text.primary">
+                С подключением,<br /> {user?.name}
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                {user?.role === 'author' ? (
+                  <CreateIcon sx={{ color: '#4f46e5', fontSize: 18, marginBottom: '4px' }} />
+                ) : (
+                  <AssignmentIcon sx={{ color: '#16a34a', fontSize: 18, marginBottom: '2px' }} />
+                )}
+              <Typography sx={{ color: user?.role === 'author' ? '#4f46e5' : '#16a34a' }}>
+                {user?.role === 'author' ? 'Автор' : 'Респондент'}
+              </Typography></Box>
+            </Box>
             <List sx={{ mb: 3 }}>
               {menuItems.map((item) => (
                 <ListItem key={item.path} disablePadding>
@@ -135,6 +166,22 @@ const MobileMenu: React.FC<MobileMenuProps> = ({ open, onClose }) => {
         )}
       </Box>
     </Drawer>
+
+    <Dialog open={logoutDialogOpen} onClose={cancelLogout}>
+      <DialogTitle>Подтверждение выхода</DialogTitle>
+      <DialogContent>
+        <Typography>Вы уверены, что хотите выйти из аккаунта?</Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={cancelLogout} variant="outlined">
+          Отмена
+        </Button>
+        <Button onClick={confirmLogout} variant="contained" color="primary">
+          Выйти
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };
 

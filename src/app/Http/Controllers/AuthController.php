@@ -16,6 +16,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6|confirmed',
+            'role' => 'sometimes|string|in:author,respondent',
         ], [
             'name.required' => 'Поле имя обязательно для заполнения.',
             'name.string' => 'Поле имя должно быть строкой.',
@@ -29,6 +30,7 @@ class AuthController extends Controller
             'password.string' => 'Поле пароль должно быть строкой.',
             'password.min' => 'Длина поля пароль должна быть не менее 6 символов.',
             'password.confirmed' => 'Подтверждение пароля не совпадает.',
+            'role.in' => 'Роль должна быть либо author, либо respondent.',
         ]);
 
         if ($validator->fails()) {
@@ -43,6 +45,7 @@ class AuthController extends Controller
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
+            'role' => $request->role ?? 'respondent', // Default to respondent
         ]);
 
         $token = JWTAuth::fromUser($user);

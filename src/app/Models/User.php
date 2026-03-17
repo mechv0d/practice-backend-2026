@@ -11,6 +11,9 @@ use Tymon\JWTAuth\Contracts\JWTSubject;
 
 class User extends Authenticatable implements JWTSubject
 {
+    const ROLE_AUTHOR = 'author';
+    const ROLE_RESPONDENT = 'respondent';
+
     /** @use HasFactory<\Database\Factories\UserFactory> */
     use HasFactory, Notifiable;
 
@@ -23,6 +26,7 @@ class User extends Authenticatable implements JWTSubject
         'name',
         'email',
         'password',
+        'role',
     ];
 
     /**
@@ -66,5 +70,15 @@ class User extends Authenticatable implements JWTSubject
     public function getJWTCustomClaims()
     {
         return [];
+    }
+
+    public function isAuthor(): bool
+    {
+        return $this->role === self::ROLE_AUTHOR;
+    }
+
+    public function isRespondent(): bool
+    {
+        return $this->role === self::ROLE_RESPONDENT;
     }
 }

@@ -10,7 +10,8 @@ import {
   UpdateQuestionData,
   SubmitResponseData,
   ApiSubmitResponseData,
-  SurveyResults
+  SurveyResults,
+  TextAnswersResult
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -117,6 +118,13 @@ export const surveysAPI = {
 
   exportResults: async (id: number): Promise<any> => {
     const response = await api.get(`/surveys/${id}/results/export`);
+    return response.data.data;
+  },
+
+  getTextAnswers: async (surveyId: number, questionId: number, page: number, search?: string): Promise<TextAnswersResult> => {
+    const params: any = { page, limit: 100 };
+    if (search) params.search = search;
+    const response = await api.get(`/surveys/${surveyId}/text-answers/${questionId}`, { params });
     return response.data.data;
   },
 

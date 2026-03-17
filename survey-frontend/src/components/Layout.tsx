@@ -2,12 +2,20 @@ import React, { useState } from 'react';
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import AppBar from '@mui/material/AppBar';
+import Avatar from '@mui/material/Avatar';
+import Tooltip from '@mui/material/Tooltip';
+import CreateIcon from '@mui/icons-material/Create';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
 import Box from '@mui/material/Box';
 import Container from '@mui/material/Container';
 import IconButton from '@mui/material/IconButton';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
 import ThemeToggle from './ThemeToggle';
 import MobileMenu from './MobileMenu';
 
@@ -16,10 +24,20 @@ const Layout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [logoutDialogOpen, setLogoutDialogOpen] = useState(false);
 
   const handleLogout = () => {
+    setLogoutDialogOpen(true);
+  };
+
+  const confirmLogout = () => {
     logout();
     navigate('/login');
+    setLogoutDialogOpen(false);
+  };
+
+  const cancelLogout = () => {
+    setLogoutDialogOpen(false);
   };
 
   const handleMobileMenuToggle = () => {
@@ -151,9 +169,18 @@ const Layout: React.FC = () => {
               <ThemeToggle />
               {isAuthenticated ? (
                 <>
-                  <Typography variant="body2" color="text.secondary">
-                    Привет, {user?.name}
-                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      С подключением, {user?.name}
+                    </Typography>
+                    <Tooltip title={`Ваша роль - ${user?.role === 'author' ? 'Автор' : 'Респондент'}`} arrow>
+                      {user?.role === 'author' ? (
+                        <CreateIcon sx={{ color: '#4f46e5', fontSize: 18 }} />
+                      ) : (
+                        <AssignmentIcon sx={{ color: '#16a34a', fontSize: 18 }} />
+                      )}
+                    </Tooltip>
+                  </Box>
                   <Button
                     onClick={handleLogout}
                     variant="outlined"
@@ -259,6 +286,21 @@ const Layout: React.FC = () => {
       </Container>
 
       <MobileMenu open={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+
+      <Dialog open={logoutDialogOpen} onClose={cancelLogout}>
+        <DialogTitle>Подтверждение выхода</DialogTitle>
+        <DialogContent>
+          <Typography>Вы уверены, что хотите выйти из аккаунта?</Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={cancelLogout} variant="outlined">
+            Отмена
+          </Button>
+          <Button onClick={confirmLogout} variant="contained" color="primary">
+            Выйти
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

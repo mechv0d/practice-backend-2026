@@ -1,7 +1,10 @@
+export type UserRole = 'author' | 'respondent';
+
 export interface User {
   id: number;
   name: string;
   email: string;
+  role: UserRole;
 }
 
 export interface AuthResponse {
@@ -23,6 +26,7 @@ export interface RegisterData {
   email: string;
   password: string;
   password_confirmation: string;
+  role: UserRole;
 }
 
 export type QuestionType = 'single_choice' | 'multiple_choice' | 'text';
@@ -104,6 +108,18 @@ export interface ApiSubmitResponseData {
   answers: ApiAnswer[];
 }
 
+export interface TextAnswersPagination {
+  current_page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+}
+
+export interface TextAnswersResult {
+  answers: string[];
+  pagination: TextAnswersPagination;
+}
+
 export interface ResponseResult {
   question_id: number;
   question_text: string;
@@ -115,6 +131,7 @@ export interface ResponseResult {
     percentage: number;
   }[];
   text_answers?: string[];
+  text_pagination?: TextAnswersPagination;
 }
 
 export interface SurveyResults {

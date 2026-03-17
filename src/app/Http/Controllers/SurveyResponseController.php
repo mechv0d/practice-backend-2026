@@ -16,6 +16,15 @@ class SurveyResponseController extends Controller
 {
     public function showForCompletion($id)
     {
+        $user = JWTAuth::user();
+
+        if (!$user->isRespondent()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only respondents can take surveys.'
+            ], 403);
+        }
+
         $survey = Survey::where('status', 'published')
             ->with(['questions.options' => function ($query) {
                 $query->orderBy('id');
@@ -55,6 +64,7 @@ class SurveyResponseController extends Controller
                             'text' => $question->text,
                             'type' => $question->type,
                             'order' => $question->order,
+                            'required' => $question->required,
                             'options' => $question->options->map(function ($option) {
                                 return [
                                     'id' => $option->id,
@@ -87,6 +97,14 @@ class SurveyResponseController extends Controller
         }
 
         $user = JWTAuth::user();
+
+        if (!$user->isRespondent()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Access denied. Only respondents can submit survey responses.'
+            ], 403);
+        }
+
         $survey = Survey::find($id);
 
         if (!$survey) {

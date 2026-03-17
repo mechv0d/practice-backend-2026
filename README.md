@@ -65,7 +65,72 @@ API-сервис для создания, управления и анализа
 ### Управление Опросами (только для авторов)
 
 - **POST /api/surveys** — Создание опроса (тело: title, description). Статус: draft. Только для авторов.
-- **GET /api/surveys** — Список опросов текущего автора. Только для авторов.
+- **GET /api/surveys** — Список опросов текущего автора с пагинацией, фильтрацией и сортировкой. Только для авторов.
+
+#### Параметры запроса для GET /api/surveys:
+
+**Пагинация:**
+- `page` (integer) - Номер страницы (по умолчанию: 1, минимум: 1)
+- `per_page` (integer) - Элементов на странице (по умолчанию: 10, минимум: 1, максимум: 100)
+
+**Фильтрация:**
+- `filter` (string) - Тип фильтра:
+  - `my` - Все опросы пользователя (по умолчанию)
+  - `active` - Только опубликованные опросы
+  - `completed` - Только закрытые опросы
+
+**Сортировка:**
+- `sort_by` (string) - Поле сортировки:
+  - `created_at` - По дате создания (по умолчанию)
+  - `updated_at` - По дате обновления
+  - `responses_count` - По количеству ответов
+- `sort_order` (string) - Направление сортировки:
+  - `desc` - По убыванию (по умолчанию)
+  - `asc` - По возрастанию
+
+#### Примеры запросов:
+```
+GET /api/surveys
+GET /api/surveys?page=2&per_page=5
+GET /api/surveys?filter=active&sort_by=responses_count&sort_order=desc
+GET /api/surveys?filter=completed&page=1&per_page=20
+```
+
+#### Формат ответа:
+```json
+{
+  "success": true,
+  "data": {
+    "surveys": [
+      {
+        "id": 1,
+        "title": "Опрос",
+        "description": "Описание",
+        "status": "published",
+        "responses_count": 5,
+        "questions_count": 3,
+        "created_at": "2024-01-01T00:00:00.000000Z",
+        "updated_at": "2024-01-01T00:00:00.000000Z"
+      }
+    ]
+  },
+  "meta": {
+    "pagination": {
+      "current_page": 1,
+      "last_page": 3,
+      "per_page": 10,
+      "total": 25,
+      "from": 1,
+      "to": 10
+    },
+    "filters": {
+      "filter": "my",
+      "sort_by": "created_at",
+      "sort_order": "desc"
+    }
+  }
+}
+```
 - **GET /api/surveys/{id}** — Получение деталей опроса (включая вопросы и варианты). Только для авторов.
 - **PUT /api/surveys/{id}** — Обновление опроса (тело: title, description). Только если draft. Только для авторов.
 - **POST /api/surveys/{id}/publish** — Публикация опроса. Только для авторов.

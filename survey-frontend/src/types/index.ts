@@ -140,3 +140,38 @@ export interface SurveyResults {
   total_respondents: number;
   results: ResponseResult[];
 }
+
+// New interfaces for paginated survey listing
+export interface SurveyPagination {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  from: number;
+  to: number;
+}
+
+export interface SurveyFilters {
+  filter: 'my' | 'published' | 'closed';
+  sort_by: 'created_at' | 'updated_at' | 'responses_count';
+  sort_order: 'asc' | 'desc';
+}
+
+export interface SurveyListResponse {
+  success: boolean;
+  data: {
+    surveys: Survey[];
+  };
+  meta: {
+    pagination: SurveyPagination;
+    filters: SurveyFilters;
+  };
+}
+
+export interface SurveyListParams {
+  page?: number;
+  per_page?: number;
+  filter?: 'my' | 'published' | 'closed';
+  sort_by?: 'created_at' | 'updated_at' | 'responses_count';
+  sort_order?: 'asc' | 'desc';
+}

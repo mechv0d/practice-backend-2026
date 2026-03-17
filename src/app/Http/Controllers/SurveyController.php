@@ -14,14 +14,95 @@ class SurveyController extends Controller
     {
         $user = JWTAuth::user();
 
-        $surveys = $user->surveys()->with('questions.options')->withCount(['responses' => function ($query) {
-            $query->whereNotNull('completed_at');
-        }, 'questions'])->get();
+        // Validation rules
+        $validator = Validator::make($request->all(), [
+            'page' => 'integer|min:1',
+            'per_page' => 'integer|min:1|max:100',
+            'filter' => 'in:my,published,closed',
+            'sort_by' => 'in:created_at,updated_at,responses_count',
+            'sort_order' => 'in:asc,desc',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation errors',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Get validated parameters with defaults
+        $page = $request->get('page', 1);
+        $perPage = $request->get('per_page', 10);
+        $filter = $request->get('filter', 'my');
+        $sortBy = $request->get('sort_by', 'created_at');
+        $sortOrder = $request->get('sort_order', 'desc');
+
+        // Build query
+        $query = $user->surveys()->with('questions.options');
+
+        // Apply filtering
+        switch ($filter) {
+            case 'published':
+                $query->where('status', 'published');
+                break;
+            case 'closed':
+                $query->where('status', 'closed');
+                break;
+            case 'my':
+            default:
+                // All user's surveys (current behavior)
+                break;
+        }
+
+        // Apply sorting
+        switch ($sortBy) {
+            case 'responses_count':
+                $query->withCount(['responses' => function ($query) {
+                    $query->whereNotNull('completed_at');
+                }])
+                ->orderBy('responses_count', $sortOrder);
+                break;
+            case 'updated_at':
+                $query->orderBy('updated_at', $sortOrder);
+                break;
+            case 'created_at':
+            default:
+                $query->orderBy('created_at', $sortOrder);
+                break;
+        }
+
+        // If not sorting by responses_count, add the count separately
+        if ($sortBy !== 'responses_count') {
+            $query->withCount(['responses' => function ($query) {
+                $query->whereNotNull('completed_at');
+            }, 'questions']);
+        } else {
+            $query->withCount('questions');
+        }
+
+        // Execute pagination
+        $surveys = $query->paginate($perPage, ['*'], 'page', $page);
 
         return response()->json([
             'success' => true,
             'data' => [
-                'surveys' => $surveys
+                'surveys' => $surveys->items()
+            ],
+            'meta' => [
+                'pagination' => [
+                    'current_page' => $surveys->currentPage(),
+                    'last_page' => $surveys->lastPage(),
+                    'per_page' => $surveys->perPage(),
+                    'total' => $surveys->total(),
+                    'from' => $surveys->firstItem(),
+                    'to' => $surveys->lastItem(),
+                ],
+                'filters' => [
+                    'filter' => $filter,
+                    'sort_by' => $sortBy,
+                    'sort_order' => $sortOrder,
+                ]
             ]
         ]);
     }

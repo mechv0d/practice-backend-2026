@@ -11,7 +11,9 @@ import {
   SubmitResponseData,
   ApiSubmitResponseData,
   SurveyResults,
-  TextAnswersResult
+  TextAnswersResult,
+  SurveyListResponse,
+  SurveyListParams
 } from '../types';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || '/api';
@@ -72,9 +74,9 @@ export const authAPI = {
 };
 
 export const surveysAPI = {
-  getMySurveys: async (): Promise<Survey[]> => {
-    const response = await api.get('/surveys');
-    return response.data.data.surveys;
+  getMySurveys: async (params?: SurveyListParams): Promise<SurveyListResponse> => {
+    const response = await api.get('/surveys', { params });
+    return response.data;
   },
 
   getSurvey: async (id: number): Promise<Survey> => {

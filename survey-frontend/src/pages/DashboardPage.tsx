@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { surveysAPI } from '../services/api';
-import { Survey } from '../types';
+import { Survey, SurveyFilters, SurveyPagination, SurveyListParams } from '../types';
+import { useSurveys } from '../hooks/useSurveys';
 import Box from '@mui/material/Box';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
@@ -10,10 +11,8 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardActions from '@mui/material/CardActions';
 import Chip from '@mui/material/Chip';
-import Alert from '@mui/material/Alert';
 import CircularProgress from '@mui/material/CircularProgress';
-import Modal from '../components/Modal';
-import ActionsDropdown from '../components/ActionsDropdown';
+import Alert from '@mui/material/Alert';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -21,11 +20,25 @@ import DialogActions from '@mui/material/DialogActions';
 import IconButton from '@mui/material/IconButton';
 import Snackbar from '@mui/material/Snackbar';
 import PageTitle from '../components/PageTitle';
+import SurveyListHeader from '../components/SurveyListHeader';
+import Pagination from '../components/Pagination';
+import Modal from '../components/Modal';
+import ActionsDropdown from '../components/ActionsDropdown';
 
 const DashboardPage: React.FC = () => {
-  const [surveys, setSurveys] = useState<Survey[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const {
+    surveys,
+    isLoading,
+    error,
+    pagination,
+    filters,
+    setFilters,
+    setPagination,
+    refetch,
+  } = useSurveys();
+
+  // Modal states
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [surveyToDelete, setSurveyToDelete] = useState<{ id: number; title: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -39,20 +52,94 @@ const DashboardPage: React.FC = () => {
   const [infoModalMessage, setInfoModalMessage] = useState('');
   const [copySuccess, setCopySuccess] = useState(false);
 
+  // Initialize filters from URL params
   useEffect(() => {
-    const fetchSurveys = async () => {
-      try {
-        const data = await surveysAPI.getMySurveys();
-        setSurveys(data);
-      } catch (err: any) {
-        setError(err.response?.data?.message || 'Ошибка загрузки опросов');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+    const urlFilter = searchParams.get('filter') as SurveyFilters['filter'] || 'my';
+    const urlSortBy = searchParams.get('sort_by') as SurveyFilters['sort_by'] || 'created_at';
+    const urlSortOrder = searchParams.get('sort_order') as SurveyFilters['sort_order'] || 'desc';
+    const urlPage = parseInt(searchParams.get('page') || '1', 10);
+    const urlPerPage = parseInt(searchParams.get('per_page') || '10', 10);
 
-    fetchSurveys();
-  }, []);
+    setFilters({
+      filter: urlFilter,
+      sort_by: urlSortBy,
+      sort_order: urlSortOrder,
+    });
+
+    if (urlPage > 1) {
+      setPagination({ current_page: urlPage });
+    }
+    
+    if (urlPerPage !== 10) {
+      setPagination({ per_page: urlPerPage });
+    }
+  }, [searchParams, setFilters, setPagination]);
+
+  // Update URL params when filters or pagination change
+  const updateURLParams = useCallback((newFilters: Partial<SurveyFilters>, newPage?: number, newPerPage?: number) => {
+    const params = new URLSearchParams(searchParams);
+    
+    if (newFilters.filter !== undefined) {
+      if (newFilters.filter === 'my') {
+        params.delete('filter');
+      } else {
+        params.set('filter', newFilters.filter);
+      }
+    }
+    
+    if (newFilters.sort_by !== undefined) {
+      if (newFilters.sort_by === 'created_at') {
+        params.delete('sort_by');
+      } else {
+        params.set('sort_by', newFilters.sort_by);
+      }
+    }
+    
+    if (newFilters.sort_order !== undefined) {
+      if (newFilters.sort_order === 'desc') {
+        params.delete('sort_order');
+      } else {
+        params.set('sort_order', newFilters.sort_order);
+      }
+    }
+    
+    if (newPage !== undefined) {
+      if (newPage === 1) {
+        params.delete('page');
+      } else {
+        params.set('page', newPage.toString());
+      }
+    }
+    
+    if (newPerPage !== undefined) {
+      if (newPerPage === 10) {
+        params.delete('per_page');
+      } else {
+        params.set('per_page', newPerPage.toString());
+      }
+    }
+    
+    setSearchParams(params);
+  }, [searchParams, setSearchParams]);
+
+  // Update URL when state changes
+  useEffect(() => {
+    if (!isLoading) {
+      updateURLParams(filters, pagination.current_page, pagination.per_page);
+    }
+  }, [filters, pagination.current_page, pagination.per_page, isLoading, updateURLParams]);
+
+  const handleFilterChange = useCallback((newFilters: Partial<SurveyFilters>) => {
+    setFilters(newFilters);
+  }, [setFilters]);
+
+  const handlePageChange = useCallback((newPage: number) => {
+    setPagination({ current_page: newPage });
+  }, [setPagination]);
+
+  const handlePerPageChange = useCallback((newPerPage: number) => {
+    setPagination({ per_page: newPerPage, current_page: 1 });
+  }, [setPagination]);
 
   const handleDeleteClick = (surveyId: number, surveyTitle: string) => {
     setSurveyToDelete({ id: surveyId, title: surveyTitle });
@@ -65,11 +152,11 @@ const DashboardPage: React.FC = () => {
     setIsDeleting(true);
     try {
       await surveysAPI.deleteSurvey(surveyToDelete.id);
-      setSurveys(surveys.filter(survey => survey.id !== surveyToDelete.id));
+      refetch();
       setDeleteModalOpen(false);
       setSurveyToDelete(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка удаления опроса');
+      console.error('Error deleting survey:', err);
     } finally {
       setIsDeleting(false);
     }
@@ -91,16 +178,11 @@ const DashboardPage: React.FC = () => {
     setIsPublishing(true);
     try {
       await surveysAPI.publishSurvey(surveyToPublish.id);
-      // Обновляем статус опроса в локальном состоянии
-      setSurveys(surveys.map(survey => 
-        survey.id === surveyToPublish.id 
-          ? { ...survey, status: 'published' }
-          : survey
-      ));
+      refetch();
       setPublishModalOpen(false);
       setSurveyToPublish(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка публикации опроса');
+      console.error('Error publishing survey:', err);
     } finally {
       setIsPublishing(false);
     }
@@ -122,16 +204,11 @@ const DashboardPage: React.FC = () => {
     setIsClosing(true);
     try {
       await surveysAPI.closeSurvey(surveyToClose.id);
-      // Обновляем статус опроса в локальном состоянии
-      setSurveys(surveys.map(survey => 
-        survey.id === surveyToClose.id 
-          ? { ...survey, status: 'closed' }
-          : survey
-      ));
+      refetch();
       setCloseModalOpen(false);
       setSurveyToClose(null);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Ошибка закрытия опроса');
+      console.error('Error closing survey:', err);
     } finally {
       setIsClosing(false);
     }
@@ -202,31 +279,25 @@ const DashboardPage: React.FC = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <Box sx={{ maxWidth: 'lg', mx: 'auto', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 256 }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
-
   if (error) {
     return (
       <Box>
+        <PageTitle title="Мои опросы" description="Управление вашими опросами" />
         <Alert 
           severity="error" 
           sx={{ mb: 3 }}
-        >
-          {error}
-        </Alert>
-        <Button 
-              variant='contained'
-              // color="inherit" 
+          action={
+            <Button
+              color="inherit"
               size="small"
               onClick={() => window.location.reload()}
             >
               Вернуться обратно
             </Button>
+          }
+        >
+          {error}
+        </Alert>
       </Box>
     );
   }
@@ -235,27 +306,9 @@ const DashboardPage: React.FC = () => {
     <>
       <PageTitle title="Мои опросы" description="Управление вашими опросами" />
       <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
-        <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
-          Мои опросы
-        </Typography>
-        <Button
-          component={Link}
-          to="/surveys/new"
-          variant="contained"
-          sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
-        >
-          Добавить новый
-        </Button>
-      </Box>
-
-      {surveys.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 12 }}>
-          <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', mb: 2 }}>
-            У вас пока нет опросов
-          </Typography>
-          <Typography variant="body1" sx={{ color: 'text.secondary', mb: 6 }}>
-            Создайте свой первый опрос, чтобы начать собирать отзывы
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 4 }}>
+          <Typography variant="h4" sx={{ fontWeight: 'bold', color: 'text.primary' }}>
+            Мои опросы
           </Typography>
           <Button
             component={Link}
@@ -263,116 +316,145 @@ const DashboardPage: React.FC = () => {
             variant="contained"
             sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
           >
-            Создать опрос
+            Добавить новый
           </Button>
         </Box>
-      ) : (
-        <Grid container spacing={3}>
-          {surveys.map((survey) => {
-            const statusProps = getStatusChipProps(survey.status);
-            return (
-              <Grid size={{ xs: 12, sm: 6, md: 4 }} key={survey.id}>
-                <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                      <Typography
-                        variant="h6"
-                        sx={{ fontWeight: 'medium', color: 'text.primary', flex: 1 }}
-                        noWrap
-                      >
-                        {survey.title}
-                      </Typography>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Chip
-                          label={statusProps.label}
-                          color={statusProps.color as 'default' | 'success' | 'error'}
-                          size="small"
-                        />
-                        <ActionsDropdown
-                          surveyId={survey.id}
-                          surveyStatus={survey.status}
-                          surveyTitle={survey.title}
-                          onDelete={survey.status === 'draft' ? handleDeleteClick : () => {
-                            setInfoModalMessage('Удалять можно только черновики. Опубликованные и закрытые опросы удалять нельзя.');
-                            setInfoModalOpen(true);
-                          }}
-                          onCopySuccess={() => setCopySuccess(true)}
-                        />
-                      </Box>
-                    </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: 'text.secondary',
-                        mb: 3,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical'
-                      }}
-                    >
-                      {survey.description || 'Описание отсутствует.'}
-                    </Typography>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'text.secondary' }}>
-                      <Box sx={{ display: 'flex', gap: 2 }}>
-                        <Typography variant="caption">
-                          {survey.questions_count || survey.questions?.length || 0} {getQuestionWord(survey.questions_count || survey.questions?.length || 0)}
+
+        <SurveyListHeader
+          filters={filters}
+          pagination={pagination}
+          onFilterChange={handleFilterChange}
+          onPerPageChange={handlePerPageChange}
+        />
+
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 256 }}>
+            <CircularProgress />
+          </Box>
+        ) : surveys.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 12 }}>
+            <Typography variant="h6" sx={{ fontWeight: 'medium', color: 'text.primary', mb: 2 }}>
+              У вас пока нет опросов
+            </Typography>
+            <Typography variant="body1" sx={{ color: 'text.secondary', mb: 6 }}>
+              Создайте свой первый опрос, чтобы начать собирать отзывы
+            </Typography>
+            <Button
+              component={Link}
+              to="/surveys/new"
+              variant="contained"
+              sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
+            >
+              Создать опрос
+            </Button>
+          </Box>
+        ) : (
+          <Grid container spacing={3}>
+            {surveys.map((survey) => {
+              const statusProps = getStatusChipProps(survey.status);
+              return (
+                <Grid size={{ xs: 12, sm: 6, md: 4 }} key={survey.id}>
+                  <Card sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                    <CardContent sx={{ flexGrow: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+                        <Typography
+                          variant="h6"
+                          sx={{ fontWeight: 'medium', color: 'text.primary', flex: 1 }}
+                          noWrap
+                        >
+                          {survey.title}
                         </Typography>
-                        {survey.status !== 'draft' && (
-                          <Typography variant="caption">
-                            {survey.responses_count || 0} {getResponseWord(survey.responses_count || 0)}
-                          </Typography>
-                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Chip
+                            label={statusProps.label}
+                            color={statusProps.color as 'default' | 'success' | 'error'}
+                            size="small"
+                          />
+                          <ActionsDropdown
+                            surveyId={survey.id}
+                            surveyStatus={survey.status}
+                            surveyTitle={survey.title}
+                            onDelete={survey.status === 'draft' ? handleDeleteClick : () => {
+                              setInfoModalMessage('Удалять можно только черновики. Опубликованные и закрытые опросы удалять нельзя.');
+                              setInfoModalOpen(true);
+                            }}
+                            onCopySuccess={() => setCopySuccess(true)}
+                          />
+                        </Box>
                       </Box>
-                      <Typography variant="caption">
-                        {new Date(survey.created_at).toLocaleDateString('ru-RU')}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: 'text.secondary',
+                          mb: 3,
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {survey.description || 'Описание отсутствует.'}
                       </Typography>
-                    </Box>
-                  </CardContent>
-                  <CardActions sx={{ bgcolor: 'action.hover', px: 2, pb: 2, justifyContent: 'flex-end' }}>
-                    {survey.status === 'draft' && (
-                      <>
-                        <Button
-                          onClick={() => handlePublishClick(survey.id, survey.title)}
-                          size="small"
-                          variant="contained"
-                          disabled={!survey.questions_count && !survey.questions?.length}
-                          sx={{ 
-                            bgcolor: 'success.main',
-                            '&:hover': { bgcolor: 'success.dark' },
-                            '&:disabled': {
-                              bgcolor: 'grey.300',
-                              cursor: 'not-allowed'
-                            },
-                            transform: 'scale(1.03)',
-                            transition: 'all 0.2s ease'
-                          }}
-                        >
-                          Опубликовать
-                        </Button>
-                      </>
-                    )}
-                    {(survey.status === 'published' || survey.status === 'closed') && (
-                      <>
-                        <Button
-                          component={Link}
-                          to={`/surveys/${survey.id}/results`}
-                          size="small"
-                          variant="outlined"
-                          sx={{ 
-                            borderColor: 'transparent',
-                            color: 'success.main',
-                            '&:hover': {
-                              borderColor: 'success.main',
-                              transform: 'scale(1.03)'
-                            }
-                          }}
-                        >
-                          Результаты
-                        </Button>
-                      </>
-                    )}
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', color: 'text.secondary' }}>
+                        <Box sx={{ display: 'flex', gap: 2 }}>
+                          <Typography variant="caption">
+                            {survey.questions_count || survey.questions?.length || 0} {getQuestionWord(survey.questions_count || survey.questions?.length || 0)}
+                          </Typography>
+                          {survey.status !== 'draft' && (
+                            <Typography variant="caption">
+                              {survey.responses_count || 0} {getResponseWord(survey.responses_count || 0)}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography variant="caption">
+                          {new Date(survey.created_at).toLocaleDateString('ru-RU')}
+                        </Typography>
+                      </Box>
+                    </CardContent>
+                    <CardActions sx={{ bgcolor: 'action.hover', px: 2, pb: 2, justifyContent: 'flex-end' }}>
+                      {survey.status === 'draft' && (
+                        <>
+                          <Button
+                            onClick={() => handlePublishClick(survey.id, survey.title)}
+                            size="small"
+                            variant="contained"
+                            disabled={!survey.questions_count && !survey.questions?.length}
+                            sx={{ 
+                              bgcolor: 'success.main',
+                              '&:hover': { bgcolor: 'success.dark' },
+                              '&:disabled': {
+                                bgcolor: 'grey.300',
+                                cursor: 'not-allowed'
+                              },
+                              transform: 'scale(1.03)',
+                              transition: 'all 0.2s ease'
+                            }}
+                          >
+                            Опубликовать
+                          </Button>
+                        </>
+                      )}
+                      {(survey.status === 'published' || survey.status === 'closed') && (
+                        <>
+                          <Button
+                            component={Link}
+                            to={`/surveys/${survey.id}/results`}
+                            size="small"
+                            variant="outlined"
+                            sx={{ 
+                              borderColor: 'transparent',
+                              color: 'success.main',
+                              '&:hover': {
+                                borderColor: 'success.main',
+                                transform: 'scale(1.03)'
+                              }
+                            }}
+                          >
+                            Результаты
+                          </Button>
+                        </>
+                      )}
                      {survey.status === 'published' && (
                           <Button
                             onClick={() => handleCloseClick(survey.id, survey.title)}
@@ -392,13 +474,26 @@ const DashboardPage: React.FC = () => {
                             Закрыть
                           </Button>
                         )}
-                  </CardActions>
-                </Card>
-              </Grid>
-            );
-          })}
-        </Grid>
-      )}
+                    </CardActions>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+        )}
+
+        {/* Pagination */}
+        {!isLoading && !error && surveys.length > 0 && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+            <Pagination
+              pagination={pagination}
+              onPageChange={handlePageChange}
+              onPerPageChange={handlePerPageChange}
+              showPerPageSelector={true}
+            />
+          </Box>
+        )}
+      </Box>
 
       {/* Модальное окно подтверждения удаления */}
       <Modal
@@ -578,7 +673,6 @@ const DashboardPage: React.FC = () => {
           }
         }}
       />
-    </Box>
     </>
   );
 };

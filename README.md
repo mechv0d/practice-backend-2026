@@ -100,7 +100,7 @@ docker-compose exec app php artisan migrate
 **Фильтрация:**
 - `filter` (string) - Тип фильтра:
   - `my` - Все опросы пользователя (по умолчанию)
-  - `active` - Только опубликованные опросы
+  - `published` - Только опубликованные опросы
   - `completed` - Только закрытые опросы
 
 **Сортировка:**
@@ -116,7 +116,7 @@ docker-compose exec app php artisan migrate
 ```
 GET /api/surveys
 GET /api/surveys?page=2&per_page=5
-GET /api/surveys?filter=active&sort_by=responses_count&sort_order=desc
+GET /api/surveys?filter=published&sort_by=responses_count&sort_order=desc
 GET /api/surveys?filter=completed&page=1&per_page=20
 ```
 
